@@ -522,7 +522,10 @@ export default function Conversas() {
 
   const getMediaUrl = (msg: any) => {
     if (msg.media_file) {
-      return pb.files.getUrl(msg, msg.media_file, { token: fileToken })
+      const collection = msg.collectionId || msg.collectionName || 'whatsapp_messages'
+      const baseUrl = pb.baseUrl.replace(/\/$/, '')
+      const url = `${baseUrl}/api/files/${collection}/${msg.id}/${msg.media_file}`
+      return fileToken ? `${url}?token=${fileToken}` : url
     }
     return msg.media_url || ''
   }

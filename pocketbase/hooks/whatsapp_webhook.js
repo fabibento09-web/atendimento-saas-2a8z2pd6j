@@ -284,7 +284,7 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
         if (record.getString('media_file')) {
           const pbUrl = $secrets.get('PB_INSTANCE_URL') || ''
           if (pbUrl) {
-            const fileUrl = `${pbUrl.endsWith('/') ? pbUrl.slice(0, -1) : pbUrl}/api/files/${record.collectionId}/${record.id}/${record.getString('media_file')}`
+            const fileUrl = `${pbUrl.endsWith('/') ? pbUrl.slice(0, -1) : pbUrl}/api/files/whatsapp_messages/${record.id}/${record.getString('media_file')}`
             record.set('media_url', fileUrl)
             $app.saveNoValidate(record)
           }
