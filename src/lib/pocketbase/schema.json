@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T21:58:34.219Z",
+  "generatedAt": "2026-04-29T22:18:01.390Z",
   "collections": [
     {
       "name": "users",
@@ -338,6 +338,36 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "media_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "media_mimetype",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "media_filename",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "caption",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "media_file",
+          "type": "file",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
