@@ -54,6 +54,46 @@ export default function Index() {
   const [step, setStep] = useState(1)
   const [progress, setProgress] = useState(0)
   const navigate = useNavigate()
+  const { signIn, signUp, user } = useAuth()
+
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLogin, setIsLogin] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (user && step === 1) {
+      setStep(2)
+    }
+  }, [user, step])
+
+  const handleAuth = async () => {
+    setLoading(true)
+    if (isLogin) {
+      const { error } = await signIn(email, password)
+      if (error) {
+        toast.error('Erro ao fazer login. Verifique suas credenciais.')
+      } else {
+        toast.success('Login efetuado com sucesso!')
+        setStep(2)
+      }
+    } else {
+      if (!name || !email || !password) {
+        toast.error('Preencha todos os campos.')
+        setLoading(false)
+        return
+      }
+      const { error } = await signUp(email, password, name)
+      if (error) {
+        toast.error('Erro ao criar conta. E-mail pode já estar em uso.')
+      } else {
+        toast.success('Conta criada com sucesso!')
+        setStep(2)
+      }
+    }
+    setLoading(false)
+  }
 
   useEffect(() => {
     if (step === 3) {
@@ -89,22 +129,32 @@ export default function Index() {
         <StepCard
           stepNum={1}
           currentStep={step}
-          title="Criar Cadastro"
+          title={isLogin ? 'Fazer Login' : 'Criar Cadastro'}
           description="Seus dados de acesso"
           icon={<UserPlus className="w-5 h-5" />}
         >
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nome Completo</Label>
-              <Input placeholder="Ex: João Silva" disabled={step !== 1} className="bg-card" />
-            </div>
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label>Nome Completo</Label>
+                <Input
+                  placeholder="Ex: João Silva"
+                  disabled={step !== 1 || loading}
+                  className="bg-card"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>E-mail Corporativo</Label>
               <Input
                 type="email"
                 placeholder="joao@empresa.com"
-                disabled={step !== 1}
+                disabled={step !== 1 || loading}
                 className="bg-card"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -112,13 +162,28 @@ export default function Index() {
               <Input
                 type="password"
                 placeholder="••••••••"
-                disabled={step !== 1}
+                disabled={step !== 1 || loading}
                 className="bg-card"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button className="w-full mt-2" onClick={() => setStep(2)} disabled={step !== 1}>
-              Cadastrar
-            </Button>
+            <div className="space-y-3 pt-2">
+              <Button className="w-full" onClick={handleAuth} disabled={step !== 1 || loading}>
+                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                {isLogin ? 'Entrar' : 'Cadastrar'}
+              </Button>
+              {step === 1 && (
+                <Button
+                  variant="ghost"
+                  className="w-full text-xs text-muted-foreground hover:text-primary"
+                  onClick={() => setIsLogin(!isLogin)}
+                  disabled={loading}
+                >
+                  {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Fazer login'}
+                </Button>
+              )}
+            </div>
           </div>
         </StepCard>
 

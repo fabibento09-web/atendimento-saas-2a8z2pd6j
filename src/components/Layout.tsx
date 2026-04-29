@@ -1,5 +1,5 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
-import { MessageSquare, LayoutDashboard, Tags, Bell, Search } from 'lucide-react'
+import { Outlet, Link, useLocation, Navigate } from 'react-router-dom'
+import { MessageSquare, LayoutDashboard, Tags, Bell, Search, LogOut } from 'lucide-react'
 import {
   SidebarProvider,
   Sidebar,
@@ -14,19 +14,22 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useAuth } from '@/hooks/use-auth'
 
 function AppSidebar() {
   const location = useLocation()
+  const { user, signOut } = useAuth()
+
   return (
     <Sidebar>
-      <SidebarHeader className="border-b p-4">
+      <SidebarHeader className="border-b p-4 bg-sidebar">
         <div className="flex items-center gap-2 text-primary">
           <MessageSquare className="w-6 h-6" />
           <span className="font-serif text-xl font-bold tracking-tight">AtendeSaaS</span>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="bg-sidebar">
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -68,17 +71,26 @@ function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t p-4">
+      <SidebarFooter className="border-t p-4 bg-sidebar">
         <div className="flex items-center gap-3">
-          <Avatar className="w-9 h-9 border border-primary/20">
+          <Avatar className="w-9 h-9 border border-primary/20 shadow-sm">
+            {user?.avatar && <AvatarImage src={user.avatar} />}
             <AvatarFallback className="bg-primary/10 text-primary font-serif font-bold">
-              AD
+              {user?.name?.substring(0, 2).toUpperCase() ||
+                user?.email?.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Admin User</span>
-            <span className="text-xs text-muted-foreground">Plano Premium</span>
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-sm font-medium truncate">{user?.name || user?.email}</span>
+            <span className="text-xs text-muted-foreground">Logado</span>
           </div>
+          <button
+            onClick={signOut}
+            className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-muted transition-colors"
+            title="Sair"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </SidebarFooter>
     </Sidebar>
@@ -87,9 +99,24 @@ function AppSidebar() {
 
 export function Layout() {
   const location = useLocation()
-  const isAuth = location.pathname === '/'
+  const { user, loading } = useAuth()
+  const isAuthPage = location.pathname === '/'
 
-  if (isAuth) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin text-primary">
+          <MessageSquare className="w-8 h-8" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!user && !isAuthPage) {
+    return <Navigate to="/" replace />
+  }
+
+  if (isAuthPage) {
     return <Outlet />
   }
 
@@ -100,8 +127,8 @@ export function Layout() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-card px-4 shadow-sm z-10">
           <SidebarTrigger className="-ml-1" />
           <div className="flex-1 flex items-center justify-between">
-            <h1 className="text-lg font-serif font-semibold text-primary ml-2">
-              Painel de Controle
+            <h1 className="text-lg font-serif font-semibold text-primary ml-2 capitalize">
+              {location.pathname.substring(1)}
             </h1>
             <div className="flex items-center gap-4">
               <div className="relative hidden md:block">
