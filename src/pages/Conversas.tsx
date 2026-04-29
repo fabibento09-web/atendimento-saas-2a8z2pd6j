@@ -481,9 +481,9 @@ export default function Conversas() {
                     )}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start mb-0.5">
-                    <div className="flex items-center gap-1.5 truncate pr-2">
+                <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
+                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                    <div className="flex items-center gap-1.5 truncate">
                       <span
                         className={cn(
                           'text-sm truncate text-foreground',
@@ -500,9 +500,21 @@ export default function Conversas() {
                         </span>
                       )}
                     </div>
+                    <p
+                      className={cn(
+                        'text-xs truncate',
+                        chat.unread_count > 0 && activeJid !== chat.remote_jid
+                          ? 'text-foreground font-medium'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {chat.content || 'Nenhuma mensagem.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end justify-center gap-1.5 shrink-0">
                     <span
                       className={cn(
-                        'text-[10px] shrink-0 mt-0.5',
+                        'text-[10px] leading-none',
                         chat.unread_count > 0 && activeJid !== chat.remote_jid
                           ? 'text-primary font-bold'
                           : 'text-muted-foreground',
@@ -513,22 +525,15 @@ export default function Conversas() {
                         minute: '2-digit',
                       })}
                     </span>
-                  </div>
-                  <div className="flex justify-between items-center gap-2 mt-0.5">
-                    <p
-                      className={cn(
-                        'text-xs truncate flex-1',
-                        chat.unread_count > 0 && activeJid !== chat.remote_jid
-                          ? 'text-foreground font-medium'
-                          : 'text-muted-foreground',
-                      )}
-                    >
-                      {chat.content || 'Nenhuma mensagem.'}
-                    </p>
                     {chat.unread_count > 0 && activeJid !== chat.remote_jid && (
-                      <Badge className="shrink-0 bg-primary text-white text-[10px] font-bold h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center shadow-sm hover:bg-primary">
+                      <div
+                        className={cn(
+                          'bg-primary text-primary-foreground font-bold w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-sm',
+                          chat.unread_count > 99 ? 'text-[9px] tracking-tighter' : 'text-[10px]',
+                        )}
+                      >
                         {chat.unread_count > 99 ? '99+' : chat.unread_count}
-                      </Badge>
+                      </div>
                     )}
                   </div>
                 </div>
