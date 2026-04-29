@@ -266,7 +266,7 @@ export default function Conversas() {
                     className={cn(
                       'max-w-[85%] md:max-w-[70%] p-3.5 shadow-sm relative group rounded-2xl border',
                       msg.from_me
-                        ? 'bg-primary text-primary-foreground rounded-tr-sm border-primary/20'
+                        ? 'bg-[#2d4635] text-white rounded-tr-sm border-[#2d4635]'
                         : 'bg-card text-foreground rounded-tl-sm border-muted',
                     )}
                   >
@@ -276,7 +276,7 @@ export default function Conversas() {
                     <span
                       className={cn(
                         'text-[10px] mt-1.5 block text-right font-medium',
-                        msg.from_me ? 'text-primary-foreground/70' : 'text-muted-foreground',
+                        msg.from_me ? 'text-white/70' : 'text-muted-foreground',
                       )}
                     >
                       {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
