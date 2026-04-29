@@ -23,14 +23,26 @@ import {
   StickyNote,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
-import { sendWhatsAppMessage } from '@/services/whatsapp_messages'
+import { sendWhatsAppMessage, sendWhatsAppMedia } from '@/services/whatsapp_messages'
 import {
   createWhatsAppInstanceApi,
   checkWhatsAppInstanceStatus,
@@ -51,8 +63,20 @@ export default function Conversas() {
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+
+  // Media Upload State
+  const [selectedMedia, setSelectedMedia] = useState<File | null>(null)
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null)
+  const [mediaCaption, setMediaCaption] = useState('')
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false)
+  const [showMediaModal, setShowMediaModal] = useState(false)
+  const [mediaType, setMediaType] = useState<'image' | 'video' | 'document' | 'audio' | null>(null)
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const autoConnectAttempted = useRef(false)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const docInputRef = useRef<HTMLInputElement>(null)
+  const audioInputRef = useRef<HTMLInputElement>(null)
 
   const activeInstance = useMemo(() => {
     return (
@@ -124,6 +148,15 @@ export default function Conversas() {
       loadConversationsMeta()
     }
   }, [activeInstance?.instance_name, activeInstance?.status])
+
+  useEffect(() => {
+    if (!showMediaModal && mediaPreviewUrl) {
+      URL.revokeObjectURL(mediaPreviewUrl)
+      setMediaPreviewUrl(null)
+      setSelectedMedia(null)
+      setMediaCaption('')
+    }
+  }, [showMediaModal])
 
   useRealtime('whatsapp_instances', (e) => {
     if (e.record.user_id === user?.id) {
@@ -270,6 +303,64 @@ export default function Conversas() {
     } catch (err: any) {
       console.error(err)
       toast.error('Falha ao enviar mensagem', { description: getErrorMessage(err) })
+    }
+  }
+
+  const handleFileSelect = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'image' | 'video' | 'document' | 'audio',
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const sizeMB = file.size / (1024 * 1024)
+    if (type === 'image' && sizeMB > 5) return toast.error('A imagem excede o limite de 5MB')
+    if (type === 'video' && sizeMB > 16) return toast.error('O vídeo excede o limite de 16MB')
+    if (type === 'audio' && sizeMB > 16) return toast.error('O áudio excede o limite de 16MB')
+    if (type === 'document' && sizeMB > 100)
+      return toast.error('O documento excede o limite de 100MB')
+
+    let finalType = type
+    if (type === 'image' && file.type.startsWith('video/')) {
+      finalType = 'video'
+    }
+
+    setMediaType(finalType)
+    setSelectedMedia(file)
+    setMediaPreviewUrl(URL.createObjectURL(file))
+    setShowMediaModal(true)
+
+    e.target.value = ''
+  }
+
+  const handleSendMedia = async () => {
+    if (
+      !selectedMedia ||
+      !mediaType ||
+      !activeJid ||
+      !activeInstance ||
+      activeInstance.status !== 'connected'
+    )
+      return
+
+    setIsUploadingMedia(true)
+    const number = activeJid.replace('@s.whatsapp.net', '')
+
+    try {
+      await sendWhatsAppMedia(
+        activeInstance.instance_name,
+        number,
+        mediaType,
+        selectedMedia,
+        mediaCaption,
+      )
+      setShowMediaModal(false)
+      toast.success('Mídia enviada com sucesso')
+    } catch (err: any) {
+      console.error(err)
+      toast.error('Falha ao enviar mídia', { description: getErrorMessage(err) })
+    } finally {
+      setIsUploadingMedia(false)
     }
   }
 
@@ -814,13 +905,61 @@ export default function Conversas() {
               >
                 <Smile className="w-5 h-5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-muted-foreground hover:text-primary hidden sm:flex"
-              >
-                <Paperclip className="w-5 h-5" />
-              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-muted-foreground hover:text-primary hidden sm:flex"
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start">
+                  <DropdownMenuItem
+                    onClick={() => imageInputRef.current?.click()}
+                    className="cursor-pointer"
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" /> Imagem / Vídeo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => docInputRef.current?.click()}
+                    className="cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 mr-2" /> Documento
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => audioInputRef.current?.click()}
+                    className="cursor-pointer"
+                  >
+                    <Mic className="w-4 h-4 mr-2" /> Áudio
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <input
+                type="file"
+                className="hidden"
+                ref={imageInputRef}
+                accept="image/*,video/*"
+                onChange={(e) => handleFileSelect(e, 'image')}
+              />
+              <input
+                type="file"
+                className="hidden"
+                ref={docInputRef}
+                accept="application/pdf,.doc,.docx,.xls,.xlsx"
+                onChange={(e) => handleFileSelect(e, 'document')}
+              />
+              <input
+                type="file"
+                className="hidden"
+                ref={audioInputRef}
+                accept="audio/*"
+                onChange={(e) => handleFileSelect(e, 'audio')}
+              />
+
               <Input
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
@@ -849,6 +988,75 @@ export default function Conversas() {
           </div>
         )}
       </div>
+
+      <Dialog open={showMediaModal} onOpenChange={setShowMediaModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar Mídia</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            {mediaType === 'image' && mediaPreviewUrl && (
+              <img
+                src={mediaPreviewUrl}
+                alt="Preview"
+                className="max-h-64 object-contain rounded-md mx-auto"
+              />
+            )}
+            {mediaType === 'video' && mediaPreviewUrl && (
+              <video src={mediaPreviewUrl} controls className="max-h-64 rounded-md mx-auto" />
+            )}
+            {mediaType === 'document' && (
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <FileText className="w-8 h-8 text-primary" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{selectedMedia?.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(selectedMedia?.size || 0) / 1024 > 1024
+                      ? ((selectedMedia?.size || 0) / (1024 * 1024)).toFixed(2) + ' MB'
+                      : ((selectedMedia?.size || 0) / 1024).toFixed(0) + ' KB'}
+                  </p>
+                </div>
+              </div>
+            )}
+            {mediaType === 'audio' && (
+              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                <Mic className="w-8 h-8 text-primary" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{selectedMedia?.name}</p>
+                  <audio src={mediaPreviewUrl || ''} controls className="w-full mt-2 h-8" />
+                </div>
+              </div>
+            )}
+
+            {mediaType !== 'audio' && (
+              <Input
+                value={mediaCaption}
+                onChange={(e) => setMediaCaption(e.target.value)}
+                placeholder="Adicionar legenda..."
+                className="mt-2"
+                onKeyDown={(e) => e.key === 'Enter' && handleSendMedia()}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowMediaModal(false)}
+              disabled={isUploadingMedia}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSendMedia} disabled={isUploadingMedia}>
+              {isUploadingMedia ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Send className="w-4 h-4 mr-2" />
+              )}
+              Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
