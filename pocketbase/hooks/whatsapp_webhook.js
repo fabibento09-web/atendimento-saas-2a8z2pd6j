@@ -112,7 +112,21 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
         record.set('push_name', data.pushName || '')
         record.set('timestamp', data.messageTimestamp || 0)
 
-        const messageData = data.message || {}
+        let messageData = data.message || {}
+
+        if (
+          messageData.documentWithCaptionMessage &&
+          messageData.documentWithCaptionMessage.message
+        ) {
+          messageData = messageData.documentWithCaptionMessage.message
+        } else if (messageData.viewOnceMessageV2 && messageData.viewOnceMessageV2.message) {
+          messageData = messageData.viewOnceMessageV2.message
+        } else if (messageData.viewOnceMessage && messageData.viewOnceMessage.message) {
+          messageData = messageData.viewOnceMessage.message
+        } else if (messageData.ephemeralMessage && messageData.ephemeralMessage.message) {
+          messageData = messageData.ephemeralMessage.message
+        }
+
         let messageType = data.messageType || 'text'
         let content = ''
         let mediaMimetype = ''
@@ -189,7 +203,7 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                    message: { key: { id: messageId } },
+                    message: { key: key, message: messageData },
                     convertToMp4: false,
                   }),
                   timeout: 30,
@@ -221,10 +235,15 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
             record.set('media_url', '')
           } else {
             try {
-              const b64Data = b64
+              let b64Data = b64
                 .split(',')
                 .pop()
-                .replace(/[^A-Za-z0-9\+\/]/g, '')
+                .replace(/[^A-Za-z0-9\+\/=]/g, '')
+
+              while (b64Data.length % 4 !== 0) {
+                b64Data += '='
+              }
+
               const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
               const lookup = {}
               for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i
