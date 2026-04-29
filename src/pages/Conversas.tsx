@@ -465,13 +465,13 @@ export default function Conversas() {
                   setIsMobileViewChat(true)
                 }}
                 className={cn(
-                  'p-4 cursor-pointer transition-all flex gap-3 hover:bg-muted/50 relative',
+                  'p-4 cursor-pointer transition-all flex gap-3 hover:bg-muted/50 relative overflow-hidden',
                   activeJid === chat.remote_jid
                     ? 'bg-primary/5 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary'
                     : 'bg-transparent',
                 )}
               >
-                <Avatar className="w-12 h-12 border border-border shadow-sm">
+                <Avatar className="shrink-0 w-12 h-12 border border-border shadow-sm">
                   {chat.avatar_url && <AvatarImage src={chat.avatar_url} alt={chat.contact_name} />}
                   <AvatarFallback className="bg-primary/10 text-primary font-serif">
                     {chat.is_group ? (
@@ -483,10 +483,10 @@ export default function Conversas() {
                 </Avatar>
                 <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
                   <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-                    <div className="flex items-center gap-1.5 truncate">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       <span
                         className={cn(
-                          'text-sm truncate text-foreground',
+                          'text-sm truncate text-foreground block',
                           chat.unread_count > 0 && activeJid !== chat.remote_jid
                             ? 'font-bold'
                             : 'font-medium',
@@ -502,7 +502,7 @@ export default function Conversas() {
                     </div>
                     <p
                       className={cn(
-                        'text-xs truncate',
+                        'text-xs truncate block w-full',
                         chat.unread_count > 0 && activeJid !== chat.remote_jid
                           ? 'text-foreground font-medium'
                           : 'text-muted-foreground',
