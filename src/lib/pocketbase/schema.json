@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T23:15:54.245Z",
+  "generatedAt": "2026-04-29T23:19:08.809Z",
   "collections": [
     {
       "name": "users",
@@ -377,6 +377,30 @@
         },
         {
           "name": "media_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_title",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "link_thumbnail_b64",
           "type": "text",
           "required": false,
           "system": false

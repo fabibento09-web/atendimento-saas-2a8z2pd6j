@@ -17,6 +17,10 @@ export interface WhatsAppMessage {
   media_filename?: string
   caption?: string
   media_type?: string
+  link_title?: string
+  link_description?: string
+  link_url?: string
+  link_thumbnail_b64?: string
 }
 
 export const getWhatsAppMessages = (instanceName: string, remoteJid: string) => {

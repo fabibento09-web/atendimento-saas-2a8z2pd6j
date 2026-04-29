@@ -168,6 +168,19 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
           content = messageData.conversation
         } else if (messageData.extendedTextMessage && messageData.extendedTextMessage.text) {
           content = messageData.extendedTextMessage.text
+          const extMsg = messageData.extendedTextMessage
+          if (extMsg.matchedText || extMsg.canonicalUrl || extMsg.title || extMsg.description) {
+            record.set('link_title', extMsg.title || '')
+            record.set('link_description', extMsg.description || '')
+            record.set('link_url', extMsg.canonicalUrl || extMsg.matchedText || '')
+            if (extMsg.jpegThumbnail) {
+              let tb = extMsg.jpegThumbnail
+              if (!tb.startsWith('data:')) {
+                tb = 'data:image/jpeg;base64,' + tb
+              }
+              record.set('link_thumbnail_b64', tb)
+            }
+          }
         } else if (messageData.imageMessage) {
           messageType = 'image'
           mediaMimetype = messageData.imageMessage.mimetype

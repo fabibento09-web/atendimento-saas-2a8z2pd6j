@@ -520,6 +520,31 @@ export default function Conversas() {
     )
   }
 
+  const renderTextWithLinks = (text: string, fromMe: boolean) => {
+    if (!text) return null
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    const parts = text.split(urlRegex)
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'underline hover:opacity-80 break-all',
+              fromMe ? 'text-white' : 'text-primary',
+            )}
+          >
+            {part}
+          </a>
+        )
+      }
+      return <span key={i}>{part}</span>
+    })
+  }
+
   const getMediaUrl = (msg: any) => {
     if (msg.media_file) {
       const collection = msg.collectionId || msg.collectionName || 'whatsapp_messages'
@@ -803,7 +828,7 @@ export default function Conversas() {
                               </Dialog>
                               {(msg.caption || msg.content) && (
                                 <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
-                                  {msg.caption || msg.content}
+                                  {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
                                 </p>
                               )}
                             </div>
@@ -816,7 +841,7 @@ export default function Conversas() {
                               />
                               {(msg.caption || msg.content) && (
                                 <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
-                                  {msg.caption || msg.content}
+                                  {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
                                 </p>
                               )}
                             </div>
@@ -880,7 +905,7 @@ export default function Conversas() {
                               </div>
                               {(msg.caption || msg.content) && (
                                 <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1">
-                                  {msg.caption || msg.content}
+                                  {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
                                 </p>
                               )}
                             </div>
@@ -891,9 +916,62 @@ export default function Conversas() {
                               className="w-32 h-32 object-contain drop-shadow-sm"
                             />
                           ) : (
-                            <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1.5">
-                              {msg.content}
-                            </p>
+                            <div className="flex flex-col">
+                              {(msg.link_title ||
+                                msg.link_description ||
+                                msg.link_url ||
+                                msg.link_thumbnail_b64) && (
+                                <a
+                                  href={
+                                    msg.link_url ||
+                                    msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
+                                    '#'
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={cn(
+                                    'block mb-2 rounded-lg border overflow-hidden transition-opacity hover:opacity-90',
+                                    msg.from_me
+                                      ? 'bg-white/10 border-white/20'
+                                      : 'bg-muted/50 border-muted',
+                                  )}
+                                >
+                                  {msg.link_thumbnail_b64 && (
+                                    <img
+                                      src={msg.link_thumbnail_b64}
+                                      alt="Link thumbnail"
+                                      className="w-full max-h-[180px] object-cover"
+                                    />
+                                  )}
+                                  <div className="p-3">
+                                    {msg.link_title && (
+                                      <h4 className="text-sm font-semibold line-clamp-2 mb-1">
+                                        {msg.link_title}
+                                      </h4>
+                                    )}
+                                    {msg.link_description && (
+                                      <p className="text-xs opacity-80 line-clamp-2 mb-2">
+                                        {msg.link_description}
+                                      </p>
+                                    )}
+                                    <span className="text-[10px] opacity-60 uppercase tracking-wider">
+                                      {
+                                        (
+                                          msg.link_url ||
+                                          msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
+                                          ''
+                                        )
+                                          .replace(/^https?:\/\/(www\.)?/, '')
+                                          .split('/')[0]
+                                      }
+                                    </span>
+                                  </div>
+                                </a>
+                              )}
+                              <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1.5">
+                                {renderTextWithLinks(msg.content, msg.from_me)}
+                              </p>
+                            </div>
                           )}
                         </>
                       )}
