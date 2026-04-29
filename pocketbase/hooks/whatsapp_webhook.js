@@ -127,6 +127,37 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
           messageData = messageData.ephemeralMessage.message
         }
 
+        const SYSTEM_KEYS = [
+          'senderKeyDistributionMessage',
+          'protocolMessage',
+          'reactionMessage',
+          'pollUpdateMessage',
+          'keepInChatMessage',
+          'messageContextInfo',
+        ]
+
+        const CONTENT_KEYS = [
+          'conversation',
+          'extendedTextMessage',
+          'imageMessage',
+          'videoMessage',
+          'audioMessage',
+          'documentMessage',
+          'stickerMessage',
+          'locationMessage',
+          'contactMessage',
+          'contactsArrayMessage',
+        ]
+
+        const msgKeys = Object.keys(messageData)
+        const isEmpty = msgKeys.length === 0
+        const hasUserContent = msgKeys.some((k) => CONTENT_KEYS.includes(k))
+        const isOnlySystemKeys = msgKeys.every((k) => SYSTEM_KEYS.includes(k))
+
+        if (isEmpty || (!hasUserContent && isOnlySystemKeys)) {
+          return e.json(200, { status: 'ignored', reason: 'system_or_empty' })
+        }
+
         let messageType = data.messageType || 'text'
         let content = ''
         let mediaMimetype = ''
@@ -158,7 +189,8 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
           messageType = 'sticker'
           mediaMimetype = messageData.stickerMessage.mimetype
         } else {
-          content = JSON.stringify(messageData)
+          $app.logger().warn('Unknown message type', 'keys', Object.keys(messageData).join(','))
+          return e.json(200, { status: 'ignored', reason: 'unknown_type' })
         }
 
         const finalContent = content || caption || ''
