@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T22:28:06.292Z",
+  "generatedAt": "2026-04-29T22:31:46.366Z",
   "collections": [
     {
       "name": "users",
@@ -371,6 +371,12 @@
         },
         {
           "name": "status",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "media_type",
           "type": "text",
           "required": false,
           "system": false
