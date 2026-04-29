@@ -63,6 +63,7 @@ export default function Conversas() {
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [fileToken, setFileToken] = useState<string>('')
 
   // Media Upload State
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null)
@@ -125,6 +126,24 @@ export default function Conversas() {
       console.error(err)
     }
   }
+
+  useEffect(() => {
+    if (!user) return
+
+    const fetchToken = async () => {
+      try {
+        const token = await pb.files.getToken()
+        setFileToken(token)
+      } catch (err) {
+        console.error('Failed to get file token', err)
+      }
+    }
+
+    fetchToken()
+    const tokenInterval = setInterval(fetchToken, 4 * 60 * 1000)
+
+    return () => clearInterval(tokenInterval)
+  }, [user])
 
   useEffect(() => {
     if (!user) return
@@ -501,6 +520,13 @@ export default function Conversas() {
     )
   }
 
+  const getMediaUrl = (msg: any) => {
+    if (msg.media_file) {
+      return pb.files.getUrl(msg, msg.media_file, { token: fileToken })
+    }
+    return msg.media_url || ''
+  }
+
   const emptyState = (
     <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-6 bg-background h-full text-center">
       <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6 shadow-sm border border-primary/10">
@@ -703,7 +729,7 @@ export default function Conversas() {
                 const isMedia = ['image', 'video', 'audio', 'document', 'sticker'].includes(
                   renderType,
                 )
-                const hasMedia = !!msg.media_url
+                const hasMedia = !!msg.media_file || !!msg.media_url
                 const mediaError = isMedia && !hasMedia
 
                 const getErrorIcon = () => {
@@ -759,14 +785,14 @@ export default function Conversas() {
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <img
-                                    src={msg.media_url}
+                                    src={getMediaUrl(msg)}
                                     alt="Imagem recebida"
                                     className="max-w-full max-h-[300px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                   />
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl p-1 bg-transparent border-none shadow-none flex justify-center [&>button]:bg-background [&>button]:text-foreground [&>button]:rounded-full [&>button]:p-1 [&>button]:shadow-md">
                                   <img
-                                    src={msg.media_url}
+                                    src={getMediaUrl(msg)}
                                     alt="Imagem ampliada"
                                     className="max-w-full max-h-[85vh] object-contain rounded-lg"
                                   />
@@ -781,7 +807,7 @@ export default function Conversas() {
                           ) : renderType === 'video' ? (
                             <div className="flex flex-col gap-2">
                               <video
-                                src={msg.media_url}
+                                src={getMediaUrl(msg)}
                                 controls
                                 className="max-w-full max-h-[300px] rounded-lg"
                               />
@@ -794,7 +820,7 @@ export default function Conversas() {
                           ) : renderType === 'audio' ? (
                             <div className="py-2 w-full">
                               <audio
-                                src={msg.media_url}
+                                src={getMediaUrl(msg)}
                                 controls
                                 className="w-full min-w-[250px] md:min-w-[300px]"
                               />
@@ -820,7 +846,7 @@ export default function Conversas() {
                               <div className="flex gap-2 mt-1">
                                 <Button size="sm" className="flex-1 h-8 text-xs" asChild>
                                   <a
-                                    href={msg.media_url}
+                                    href={getMediaUrl(msg)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     download
@@ -841,7 +867,7 @@ export default function Conversas() {
                                     </DialogTrigger>
                                     <DialogContent className="max-w-5xl h-[85vh] p-0">
                                       <iframe
-                                        src={msg.media_url}
+                                        src={getMediaUrl(msg)}
                                         className="w-full h-full rounded-lg"
                                         title="PDF Preview"
                                       />
@@ -857,7 +883,7 @@ export default function Conversas() {
                             </div>
                           ) : renderType === 'sticker' ? (
                             <img
-                              src={msg.media_url}
+                              src={getMediaUrl(msg)}
                               alt="Sticker"
                               className="w-32 h-32 object-contain drop-shadow-sm"
                             />
