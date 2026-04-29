@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T19:09:53.528Z",
+  "generatedAt": "2026-04-29T19:13:16.819Z",
   "collections": [
     {
       "name": "users",
@@ -216,6 +216,84 @@
         }
       ],
       "indexes": []
+    },
+    {
+      "name": "whatsapp_messages",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "instance_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "remote_jid",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "from_me",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "message_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "push_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "content",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "message_type",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "timestamp",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_whatsapp_messages_instance_jid ON whatsapp_messages (instance_name, remote_jid)"
+      ]
     }
   ]
 }
