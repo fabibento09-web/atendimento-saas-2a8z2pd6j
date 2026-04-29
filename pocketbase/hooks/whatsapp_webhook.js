@@ -188,7 +188,10 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
                     apikey: apiKey,
                     'Content-Type': 'application/json',
                   },
-                  body: JSON.stringify({ message: { key: key }, convertToMp4: false }),
+                  body: JSON.stringify({
+                    message: { key: { id: messageId } },
+                    convertToMp4: false,
+                  }),
                   timeout: 30,
                 })
 
@@ -203,7 +206,7 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
                       'status',
                       res.statusCode,
                       'body',
-                      res.raw || res.json,
+                      res.json ? JSON.stringify(res.json) : 'unknown',
                     )
                 }
               } catch (err) {
@@ -215,6 +218,7 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
           if (!b64) {
             $app.logger().error('Base64 media data is missing or empty')
             record.set('status', 'media_failed')
+            record.set('media_url', '')
           } else {
             try {
               const b64Data = b64
