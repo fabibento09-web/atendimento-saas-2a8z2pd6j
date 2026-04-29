@@ -18,6 +18,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -525,9 +526,9 @@ export default function Conversas() {
                       {chat.content || 'Nenhuma mensagem.'}
                     </p>
                     {chat.unread_count > 0 && activeJid !== chat.remote_jid && (
-                      <div className="shrink-0 bg-primary text-white text-[10px] font-bold h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center shadow-sm">
+                      <Badge className="shrink-0 bg-primary text-white text-[10px] font-bold h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center shadow-sm hover:bg-primary">
                         {chat.unread_count > 99 ? '99+' : chat.unread_count}
-                      </div>
+                      </Badge>
                     )}
                   </div>
                 </div>
