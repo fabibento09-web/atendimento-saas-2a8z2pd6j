@@ -486,7 +486,9 @@ export default function Conversas() {
                       <span
                         className={cn(
                           'text-sm truncate text-foreground',
-                          chat.unread_count > 0 ? 'font-bold' : 'font-medium',
+                          chat.unread_count > 0 && activeJid !== chat.remote_jid
+                            ? 'font-bold'
+                            : 'font-medium',
                         )}
                       >
                         {chat.contact_name}
@@ -500,7 +502,9 @@ export default function Conversas() {
                     <span
                       className={cn(
                         'text-[10px] shrink-0 mt-0.5',
-                        chat.unread_count > 0 ? 'text-primary font-bold' : 'text-muted-foreground',
+                        chat.unread_count > 0 && activeJid !== chat.remote_jid
+                          ? 'text-primary font-bold'
+                          : 'text-muted-foreground',
                       )}
                     >
                       {new Date(chat.timestamp * 1000).toLocaleTimeString([], {
@@ -513,14 +517,14 @@ export default function Conversas() {
                     <p
                       className={cn(
                         'text-xs truncate flex-1',
-                        chat.unread_count > 0
+                        chat.unread_count > 0 && activeJid !== chat.remote_jid
                           ? 'text-foreground font-medium'
                           : 'text-muted-foreground',
                       )}
                     >
                       {chat.content || 'Nenhuma mensagem.'}
                     </p>
-                    {chat.unread_count > 0 && (
+                    {chat.unread_count > 0 && activeJid !== chat.remote_jid && (
                       <div className="shrink-0 bg-primary text-primary-foreground text-[10px] font-bold h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center shadow-sm">
                         {chat.unread_count > 99 ? '99+' : chat.unread_count}
                       </div>
