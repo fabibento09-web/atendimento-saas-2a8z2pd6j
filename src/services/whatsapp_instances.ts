@@ -25,3 +25,9 @@ export const updateWhatsAppInstance = (id: string, data: Partial<WhatsAppInstanc
   pb.collection('whatsapp_instances').update<WhatsAppInstance>(id, data)
 
 export const deleteWhatsAppInstance = (id: string) => pb.collection('whatsapp_instances').delete(id)
+
+export const checkWhatsAppInstanceStatus = (instanceName: string) =>
+  pb.send<{ status: 'qrcode' | 'connected' | 'disconnected'; qrcodeBase64?: string }>(
+    `/backend/v1/whatsapp/instance-status?instanceName=${encodeURIComponent(instanceName)}`,
+    { method: 'GET' },
+  )
