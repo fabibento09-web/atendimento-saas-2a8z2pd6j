@@ -155,68 +155,105 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
         record.set('media_filename', mediaFilename || '')
 
         if (['image', 'video', 'audio', 'document', 'sticker'].includes(messageType)) {
-          const apiUrl = $secrets.get('EVOLUTION_API_URL')
-          const apiKey = $secrets.get('EVOLUTION_API_KEY')
-          const baseUrl = apiUrl && apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
+          let b64 = null
+          let source = ''
 
-          if (baseUrl && apiKey) {
-            try {
-              const res = $http.send({
-                url: `${baseUrl}/chat/getBase64FromMediaMessage/${instanceName}`,
-                method: 'POST',
-                headers: {
-                  apikey: apiKey,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: { key: key }, convertToMp4: false }),
-                timeout: 30,
-              })
+          if (messageData.base64) {
+            b64 = messageData.base64
+            source = 'data.message.base64'
+          } else if (
+            messageData[`${messageType}Message`] &&
+            messageData[`${messageType}Message`].base64
+          ) {
+            b64 = messageData[`${messageType}Message`].base64
+            source = `data.message.${messageType}Message.base64`
+          } else if (data.base64) {
+            b64 = data.base64
+            source = 'data.base64'
+          }
 
-              if (res.statusCode === 200 && res.json && res.json.base64) {
-                const b64 = res.json.base64
-                  .split(',')
-                  .pop()
-                  .replace(/[^A-Za-z0-9\+\/]/g, '')
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-                const lookup = {}
-                for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i
+          if (b64) {
+            $app.logger().info(`Using base64 from payload: ${source}`)
+          } else {
+            const apiUrl = $secrets.get('EVOLUTION_API_URL')
+            const apiKey = $secrets.get('EVOLUTION_API_KEY')
+            const baseUrl = apiUrl && apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
 
-                const bytes = new Uint8Array(b64.length * 0.75)
-                let p = 0
-                for (let i = 0; i < b64.length; i += 4) {
-                  const c1 = lookup[b64.charCodeAt(i)]
-                  const c2 = lookup[b64.charCodeAt(i + 1)]
-                  const c3 = lookup[b64.charCodeAt(i + 2)]
-                  const c4 = lookup[b64.charCodeAt(i + 3)]
-                  if (c1 !== undefined && c2 !== undefined) {
-                    bytes[p++] = (c1 << 2) | (c2 >> 4)
-                    if (c3 !== undefined) bytes[p++] = ((c2 & 15) << 4) | (c3 >> 2)
-                    if (c4 !== undefined) bytes[p++] = ((c3 & 3) << 6) | (c4 & 63)
-                  }
+            if (baseUrl && apiKey) {
+              try {
+                const res = $http.send({
+                  url: `${baseUrl}/chat/getBase64FromMediaMessage/${instanceName}`,
+                  method: 'POST',
+                  headers: {
+                    apikey: apiKey,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ message: { key: key }, convertToMp4: false }),
+                  timeout: 30,
+                })
+
+                if (res.statusCode === 200 && res.json && res.json.base64) {
+                  b64 = res.json.base64
+                  $app.logger().info('Using base64 from HTTP API call')
+                } else {
+                  $app
+                    .logger()
+                    .error(
+                      'Failed to get base64 media',
+                      'status',
+                      res.statusCode,
+                      'body',
+                      res.raw || res.json,
+                    )
                 }
-                const actualBytes = bytes.slice(0, p)
-
-                const ext = (mediaMimetype || '').split('/')[1]?.split(';')[0] || 'bin'
-                const finalFilename = mediaFilename || `${$security.randomString(8)}.${ext}`
-                record.set('media_filename', finalFilename)
-
-                const file = $filesystem.fileFromBytes(actualBytes, finalFilename)
-                record.set('media_file', file)
-              } else {
-                $app
-                  .logger()
-                  .error(
-                    'Failed to get base64 media',
-                    'status',
-                    res.statusCode,
-                    'body',
-                    res.raw || res.json,
-                  )
+              } catch (err) {
+                $app.logger().error('Error fetching base64 media', 'error', err.message)
               }
-            } catch (err) {
-              $app.logger().error('Error fetching base64 media', 'error', err.message)
             }
           }
+
+          if (!b64) {
+            $app.logger().error('Base64 media data is missing or empty')
+            record.set('status', 'media_failed')
+          } else {
+            try {
+              const b64Data = b64
+                .split(',')
+                .pop()
+                .replace(/[^A-Za-z0-9\+\/]/g, '')
+              const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+              const lookup = {}
+              for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i
+
+              const bytes = new Uint8Array(b64Data.length * 0.75)
+              let p = 0
+              for (let i = 0; i < b64Data.length; i += 4) {
+                const c1 = lookup[b64Data.charCodeAt(i)]
+                const c2 = lookup[b64Data.charCodeAt(i + 1)]
+                const c3 = lookup[b64Data.charCodeAt(i + 2)]
+                const c4 = lookup[b64Data.charCodeAt(i + 3)]
+                if (c1 !== undefined && c2 !== undefined) {
+                  bytes[p++] = (c1 << 2) | (c2 >> 4)
+                  if (c3 !== undefined) bytes[p++] = ((c2 & 15) << 4) | (c3 >> 2)
+                  if (c4 !== undefined) bytes[p++] = ((c3 & 3) << 6) | (c4 & 63)
+                }
+              }
+              const actualBytes = bytes.slice(0, p)
+
+              const ext = (mediaMimetype || '').split('/')[1]?.split(';')[0] || 'bin'
+              const finalFilename = mediaFilename || `${$security.randomString(8)}.${ext}`
+              record.set('media_filename', finalFilename)
+
+              const file = $filesystem.fileFromBytes(actualBytes, finalFilename)
+              record.set('media_file', file)
+              record.set('status', 'success')
+            } catch (err) {
+              $app.logger().error('Failed to decode and save base64 media', 'error', err.message)
+              record.set('status', 'media_failed')
+            }
+          }
+        } else {
+          record.set('status', 'success')
         }
 
         $app.save(record)
