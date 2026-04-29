@@ -13,10 +13,11 @@ import {
   Loader2,
   LogOut,
   AlertCircle,
+  Users,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
@@ -27,10 +28,12 @@ import {
   disconnectWhatsAppInstanceApi,
 } from '@/services/whatsapp_instances'
 import { toast } from 'sonner'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function Conversas() {
   const { user } = useAuth()
   const [messages, setMessages] = useState<any[]>([])
+  const [conversationsMeta, setConversationsMeta] = useState<any[]>([])
   const [instances, setInstances] = useState<any[]>([])
   const [activeJid, setActiveJid] = useState<string | null>(null)
   const [inputText, setInputText] = useState('')
@@ -78,6 +81,18 @@ export default function Conversas() {
     }
   }
 
+  const loadConversationsMeta = async () => {
+    if (!activeInstance || activeInstance.status !== 'connected') return
+    try {
+      const fetchedMeta = await pb.collection('conversations').getFullList({
+        filter: `instance_name = "${activeInstance.instance_name}"`,
+      })
+      setConversationsMeta(fetchedMeta)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   useEffect(() => {
     if (!user) return
     loadInstances().then((insts) => {
@@ -97,6 +112,7 @@ export default function Conversas() {
   useEffect(() => {
     if (activeInstance && activeInstance.status === 'connected') {
       loadMessages()
+      loadConversationsMeta()
     }
   }, [activeInstance?.instance_name, activeInstance?.status])
 
@@ -118,6 +134,21 @@ export default function Conversas() {
       }
     } else {
       loadMessages()
+    }
+  })
+
+  useRealtime('conversations', (e) => {
+    if (!activeInstance || activeInstance.status !== 'connected') return
+    if (e.record.instance_name === activeInstance.instance_name) {
+      if (e.action === 'create' || e.action === 'update') {
+        setConversationsMeta((prev) => {
+          const exists = prev.find((m) => m.id === e.record.id)
+          if (exists) return prev.map((m) => (m.id === e.record.id ? e.record : m))
+          return [...prev, e.record]
+        })
+      } else if (e.action === 'delete') {
+        setConversationsMeta((prev) => prev.filter((m) => m.id !== e.record.id))
+      }
     }
   })
 
@@ -162,8 +193,19 @@ export default function Conversas() {
         map.set(m.remote_jid, m)
       }
     })
-    return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp)
-  }, [messages])
+
+    return Array.from(map.values())
+      .map((c) => {
+        const meta = conversationsMeta.find((meta) => meta.remote_jid === c.remote_jid)
+        return {
+          ...c,
+          is_group: meta ? meta.is_group : c.remote_jid.includes('@g.us'),
+          avatar_url: meta?.avatar_url === 'none' ? null : meta?.avatar_url,
+          contact_name: meta?.contact_name || c.push_name || c.remote_jid,
+        }
+      })
+      .sort((a, b) => b.timestamp - a.timestamp)
+  }, [messages, conversationsMeta])
 
   useEffect(() => {
     if (!activeJid && conversations.length > 0) {
@@ -172,7 +214,7 @@ export default function Conversas() {
   }, [conversations, activeJid])
 
   const filteredConversations = conversations.filter((c) => {
-    const name = c.push_name || c.remote_jid || ''
+    const name = c.contact_name || c.remote_jid || ''
     return name.toLowerCase().includes(search.toLowerCase())
   })
 
@@ -196,7 +238,7 @@ export default function Conversas() {
       setInputText('')
     } catch (err: any) {
       console.error(err)
-      toast.error('Falha ao enviar mensagem', { description: err.message })
+      toast.error('Falha ao enviar mensagem', { description: getErrorMessage(err) })
     }
   }
 
@@ -214,7 +256,8 @@ export default function Conversas() {
     } catch (err: any) {
       console.error(err)
       setCreateError(
-        'Erro ao gerar QR Code. Por favor, tente novamente ou desconecte a instância atual',
+        getErrorMessage(err) ||
+          'Erro ao comunicar com a Evolution API. Por favor, tente novamente.',
       )
     } finally {
       setIsCreating(false)
@@ -231,7 +274,7 @@ export default function Conversas() {
       await loadInstances()
       toast.success('WhatsApp desconectado com sucesso.')
     } catch (err: any) {
-      toast.error('Erro ao desconectar WhatsApp', { description: err.message })
+      toast.error('Erro ao desconectar WhatsApp', { description: getErrorMessage(err) })
     }
   }
 
@@ -247,7 +290,7 @@ export default function Conversas() {
             <div className="w-full">
               <Alert variant="destructive" className="mb-6 text-left">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Erro</AlertTitle>
+                <AlertTitle>Erro na Conexão</AlertTitle>
                 <AlertDescription className="mt-2 text-sm leading-relaxed">
                   {createError}
                 </AlertDescription>
@@ -406,15 +449,27 @@ export default function Conversas() {
                 )}
               >
                 <Avatar className="w-12 h-12 border border-border shadow-sm">
+                  {chat.avatar_url && <AvatarImage src={chat.avatar_url} alt={chat.contact_name} />}
                   <AvatarFallback className="bg-primary/10 text-primary font-serif">
-                    {(chat.push_name || chat.remote_jid)?.charAt(0).toUpperCase() || '?'}
+                    {chat.is_group ? (
+                      <Users className="w-5 h-5" />
+                    ) : (
+                      chat.contact_name?.charAt(0).toUpperCase() || '?'
+                    )}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-0.5">
-                    <span className="font-medium text-sm truncate pr-2 text-foreground">
-                      {chat.push_name || chat.remote_jid}
-                    </span>
+                    <div className="flex items-center gap-1.5 truncate pr-2">
+                      <span className="font-medium text-sm truncate text-foreground">
+                        {chat.contact_name}
+                      </span>
+                      {chat.is_group && (
+                        <span className="shrink-0 bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                          Grupo
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
                       {new Date(chat.timestamp * 1000).toLocaleTimeString([], {
                         hour: '2-digit',
@@ -451,16 +506,28 @@ export default function Conversas() {
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
                 <Avatar className="w-10 h-10 border border-border shadow-sm">
+                  {activeConversation.avatar_url && (
+                    <AvatarImage src={activeConversation.avatar_url} />
+                  )}
                   <AvatarFallback className="font-serif bg-primary/10 text-primary">
-                    {(activeConversation.push_name || activeConversation.remote_jid)
-                      ?.charAt(0)
-                      .toUpperCase() || '?'}
+                    {activeConversation.is_group ? (
+                      <Users className="w-4 h-4" />
+                    ) : (
+                      activeConversation.contact_name?.charAt(0).toUpperCase() || '?'
+                    )}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="font-semibold text-sm text-foreground">
-                    {activeConversation.push_name || activeConversation.remote_jid}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-sm text-foreground">
+                      {activeConversation.contact_name}
+                    </h3>
+                    {activeConversation.is_group && (
+                      <span className="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                        Grupo
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">{activeConversation.remote_jid}</p>
                 </div>
               </div>

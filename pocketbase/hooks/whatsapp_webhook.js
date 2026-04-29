@@ -46,7 +46,8 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
         record.set('instance_name', instanceName)
 
         const key = data.key || {}
-        record.set('remote_jid', key.remoteJid || '')
+        const remoteJid = key.remoteJid || ''
+        record.set('remote_jid', remoteJid)
         record.set('from_me', !!key.fromMe)
         record.set('message_id', key.id || '')
 
@@ -70,8 +71,77 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
         record.set('timestamp', data.messageTimestamp || 0)
 
         $app.save(record)
+
+        // Sync Conversation
+        if (remoteJid && remoteJid !== 'status@broadcast') {
+          let instanceRecord
+          try {
+            instanceRecord = $app.findFirstRecordByData(
+              'whatsapp_instances',
+              'instance_name',
+              instanceName,
+            )
+          } catch (_) {}
+
+          if (instanceRecord) {
+            const userId = instanceRecord.getString('user_id')
+            const isGroup = remoteJid.includes('@g.us') || !!data.isGroup
+
+            let convRecord
+            try {
+              convRecord = $app.findFirstRecordByFilter(
+                'conversations',
+                'user_id = {:userId} && remote_jid = {:remoteJid} && instance_name = {:instanceName}',
+                { userId, remoteJid, instanceName },
+              )
+            } catch (_) {
+              const convCol = $app.findCollectionByNameOrId('conversations')
+              convRecord = new Record(convCol)
+              convRecord.set('user_id', userId)
+              convRecord.set('remote_jid', remoteJid)
+              convRecord.set('instance_name', instanceName)
+              convRecord.set('is_group', isGroup)
+              convRecord.set('contact_phone', remoteJid.split('@')[0])
+            }
+
+            if (data.pushName && !convRecord.getString('contact_name')) {
+              convRecord.set('contact_name', data.pushName)
+            }
+            convRecord.set('last_message', content)
+
+            // Try to fetch avatar if missing
+            if (!convRecord.getString('avatar_url')) {
+              const apiUrl = $secrets.get('EVOLUTION_API_URL')
+              const apiKey = $secrets.get('EVOLUTION_API_KEY')
+              if (apiUrl && apiKey) {
+                try {
+                  const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
+                  const res = $http.send({
+                    url: `${baseUrl}/chat/fetchProfilePictureUrl/${instanceName}`,
+                    method: 'POST',
+                    headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ number: remoteJid }),
+                    timeout: 5,
+                  })
+                  if (res.statusCode === 200 && res.json && res.json.profilePictureUrl) {
+                    convRecord.set('avatar_url', res.json.profilePictureUrl)
+                  } else {
+                    convRecord.set('avatar_url', 'none')
+                  }
+                } catch (e) {
+                  $app.logger().warn('Failed to fetch avatar', 'error', e.message)
+                  convRecord.set('avatar_url', 'none') // prevent retries on error
+                }
+              } else {
+                convRecord.set('avatar_url', 'none')
+              }
+            }
+
+            $app.save(convRecord)
+          }
+        }
       } catch (err) {
-        $app.logger().error('Failed to save message', 'error', err.message)
+        $app.logger().error('Failed to save message or sync conversation', 'error', err.message)
       }
     }
   } catch (err) {

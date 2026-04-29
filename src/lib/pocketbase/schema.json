@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T20:07:48.679Z",
+  "generatedAt": "2026-04-29T20:21:03.601Z",
   "collections": [
     {
       "name": "users",
@@ -147,6 +147,30 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "remote_jid",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_group",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "instance_name",
+          "type": "text",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": []
