@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle2, QrCode, UserPlus, RefreshCw } from 'lucide-react'
+import { CheckCircle2, QrCode, UserPlus, RefreshCw, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/use-auth'
+import { toast } from 'sonner'
 
 function StepCard({ stepNum, currentStep, title, icon, children, description }: any) {
   const isActive = stepNum === currentStep
