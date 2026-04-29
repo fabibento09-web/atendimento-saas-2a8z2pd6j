@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T18:52:38.573Z",
+  "generatedAt": "2026-04-29T18:57:29.996Z",
   "collections": [
     {
       "name": "users",
@@ -133,6 +133,72 @@
           "required": false,
           "system": false,
           "collectionRef": "categories"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": []
+    },
+    {
+      "name": "whatsapp_instances",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user_id = @request.auth.id",
+        "view": "@request.auth.id != '' && user_id = @request.auth.id",
+        "create": "@request.auth.id != '' && @request.body.user_id = @request.auth.id",
+        "update": "@request.auth.id != '' && user_id = @request.auth.id",
+        "delete": "@request.auth.id != '' && user_id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "instance_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "instance_id",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "instance_hash",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "status",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["creating", "qrcode", "connected", "disconnected"]
+        },
+        {
+          "name": "phone_number",
+          "type": "text",
+          "required": false,
+          "system": false
         },
         {
           "name": "created",
