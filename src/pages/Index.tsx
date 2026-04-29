@@ -9,6 +9,10 @@ import { CheckCircle2, QrCode, UserPlus, RefreshCw, Loader2 } from 'lucide-react
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
 import { toast } from 'sonner'
+import {
+  createWhatsAppInstanceApi,
+  checkWhatsAppInstanceStatus,
+} from '@/services/whatsapp_instances'
 
 function StepCard({ stepNum, currentStep, title, icon, children, description }: any) {
   const isActive = stepNum === currentStep
@@ -64,11 +68,60 @@ export default function Index() {
   const [isLogin, setIsLogin] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null)
+  const [isPolling, setIsPolling] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+
   useEffect(() => {
     if (user && step === 1) {
       setStep(2)
     }
   }, [user, step])
+
+  useEffect(() => {
+    if (step === 2 && user?.id) {
+      const initInstance = async () => {
+        try {
+          setApiError(null)
+          const res = await createWhatsAppInstanceApi(user.id)
+          if (res.qrcodeBase64) {
+            setQrCodeBase64(res.qrcodeBase64)
+          }
+          setIsPolling(true)
+        } catch (error) {
+          setApiError('Erro ao gerar QR Code do WhatsApp. Tente novamente.')
+          toast.error('Erro ao gerar QR Code do WhatsApp. Tente novamente.')
+        }
+      }
+      initInstance()
+    }
+  }, [step, user])
+
+  useEffect(() => {
+    let intervalId: any
+
+    if (isPolling && step === 2 && user?.id) {
+      intervalId = setInterval(async () => {
+        try {
+          const res = await checkWhatsAppInstanceStatus(user.id)
+          setApiError(null) // Reset error if successful response
+          if (res.qrcodeBase64) {
+            setQrCodeBase64(res.qrcodeBase64)
+          }
+          if (res.status === 'connected') {
+            setIsPolling(false)
+            setStep(3)
+          }
+        } catch (error) {
+          setApiError('Erro ao verificar status. Tentando novamente...')
+        }
+      }, 3000)
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+    }
+  }, [isPolling, step, user])
 
   const handleAuth = async () => {
     setLoading(true)
@@ -199,28 +252,35 @@ export default function Index() {
           <div className="flex flex-col items-center justify-center space-y-6 py-4">
             <div
               className={cn(
-                'p-4 bg-white rounded-2xl shadow-inner transition-all',
+                'p-4 bg-white rounded-2xl shadow-inner transition-all flex items-center justify-center w-[192px] h-[192px]',
                 step !== 2 && 'opacity-50 blur-sm grayscale',
               )}
             >
-              <img
-                src="https://img.usecurling.com/p/200/200?q=qrcode"
-                alt="QR Code"
-                className="w-40 h-40 mix-blend-multiply"
-              />
+              {qrCodeBase64 ? (
+                <img
+                  src={
+                    qrCodeBase64.startsWith('data:image')
+                      ? qrCodeBase64
+                      : `data:image/png;base64,${qrCodeBase64}`
+                  }
+                  alt="QR Code"
+                  className="w-40 h-40 mix-blend-multiply"
+                />
+              ) : step === 2 && !apiError ? (
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              ) : (
+                <QrCode className="w-16 h-16 text-muted/30" />
+              )}
             </div>
+            {apiError && (
+              <p className="text-xs text-center text-destructive bg-destructive/10 p-2 rounded-md w-full">
+                {apiError}
+              </p>
+            )}
             <p className="text-sm text-center text-muted-foreground">
               Abra o WhatsApp no seu celular, acesse "Aparelhos Conectados" e aponte a câmera para o
               código.
             </p>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setStep(3)}
-              disabled={step !== 2}
-            >
-              Simular Escaneamento
-            </Button>
           </div>
         </StepCard>
 

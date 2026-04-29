@@ -31,3 +31,9 @@ export const checkWhatsAppInstanceStatus = (instanceName: string) =>
     `/backend/v1/whatsapp/instance-status?instanceName=${encodeURIComponent(instanceName)}`,
     { method: 'GET' },
   )
+
+export const createWhatsAppInstanceApi = (instanceName: string) =>
+  pb.send<{ status: string; qrcodeBase64?: string }>('/backend/v1/whatsapp/create-instance', {
+    method: 'POST',
+    body: JSON.stringify({ instanceName }),
+  })
