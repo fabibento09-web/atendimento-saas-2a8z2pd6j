@@ -525,7 +525,7 @@ export default function Conversas() {
                       {chat.content || 'Nenhuma mensagem.'}
                     </p>
                     {chat.unread_count > 0 && activeJid !== chat.remote_jid && (
-                      <div className="shrink-0 bg-primary text-primary-foreground text-[10px] font-bold h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center shadow-sm">
+                      <div className="shrink-0 bg-primary text-white text-[10px] font-bold h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center shadow-sm">
                         {chat.unread_count > 99 ? '99+' : chat.unread_count}
                       </div>
                     )}
