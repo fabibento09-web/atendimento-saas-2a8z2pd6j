@@ -52,36 +52,78 @@ routerAdd(
       return e.internalServerError('Evolution API transport error: ' + err.message)
     }
 
+    let qrcodeBase64 = ''
+    let instanceId = ''
+    let instanceHash = ''
+    let status = 'qrcode'
+
     if (res.statusCode !== 200 && res.statusCode !== 201) {
-      let errorMsg = 'Evolution API returned an error'
+      let errorMsg = ''
       if (res.json) {
         errorMsg = res.json.message || JSON.stringify(res.json)
       }
-      $app.logger().error('Evolution API error', 'status', res.statusCode, 'response', errorMsg)
-      return e.internalServerError('Evolution API error: ' + errorMsg)
+
+      // If instance already exists, fallback to connecting and retrieving QR code
+      if (errorMsg.includes('already exists') || res.statusCode === 403 || res.statusCode === 400) {
+        try {
+          const connRes = $http.send({
+            url: baseUrl + '/instance/connect/' + instanceName,
+            method: 'GET',
+            headers: { apikey: evolutionKey },
+            timeout: 30,
+          })
+          if (connRes.statusCode === 200) {
+            qrcodeBase64 = connRes.json?.base64 || ''
+          } else if (
+            connRes.json &&
+            connRes.json.instance &&
+            connRes.json.instance.state === 'open'
+          ) {
+            status = 'connected'
+          } else {
+            $app.logger().error('Evolution API connect error', 'status', connRes.statusCode)
+            return e.internalServerError('Failed to connect to existing instance')
+          }
+        } catch (connErr) {
+          return e.internalServerError('Failed to connect to existing instance: ' + connErr.message)
+        }
+      } else {
+        $app.logger().error('Evolution API error', 'status', res.statusCode, 'response', errorMsg)
+        return e.internalServerError('Evolution API error: ' + errorMsg)
+      }
+    } else {
+      const resData = res.json || {}
+      instanceId = resData.instance ? resData.instance.instanceId || resData.instance.id || '' : ''
+      if (resData.hash) {
+        instanceHash = resData.hash.apikey || resData.hash
+      }
+      qrcodeBase64 = resData.qrcode ? resData.qrcode.base64 : ''
     }
 
-    const resData = res.json || {}
-    const instanceId = resData.instance
-      ? resData.instance.instanceId || resData.instance.id || ''
-      : ''
-    let instanceHash = ''
-    if (resData.hash) {
-      instanceHash = resData.hash.apikey || resData.hash
+    let record
+    try {
+      record = $app.findFirstRecordByFilter(
+        'whatsapp_instances',
+        'instance_name = {:name} && user_id = {:userId}',
+        { name: instanceName, userId: e.auth.id },
+      )
+    } catch (_) {
+      const collection = $app.findCollectionByNameOrId('whatsapp_instances')
+      record = new Record(collection)
+      record.set('user_id', e.auth.id)
+      record.set('instance_name', instanceName)
+      record.set('instance_id', instanceId || 'unknown')
+      record.set('instance_hash', instanceHash || 'unknown')
     }
-    const qrcodeBase64 = resData.qrcode ? resData.qrcode.base64 : ''
 
-    const collection = $app.findCollectionByNameOrId('whatsapp_instances')
-    const record = new Record(collection)
-
-    record.set('user_id', e.auth.id)
-    record.set('instance_name', instanceName)
-    record.set('instance_id', String(instanceId))
-    record.set(
-      'instance_hash',
-      typeof instanceHash === 'string' ? instanceHash : JSON.stringify(instanceHash),
-    )
-    record.set('status', 'qrcode')
+    if (instanceId) record.set('instance_id', String(instanceId))
+    if (instanceHash) {
+      record.set(
+        'instance_hash',
+        typeof instanceHash === 'string' ? instanceHash : JSON.stringify(instanceHash),
+      )
+    }
+    record.set('status', status)
 
     try {
       $app.save(record)
@@ -93,7 +135,7 @@ routerAdd(
     return e.json(200, {
       instanceName: instanceName,
       qrcodeBase64: qrcodeBase64 || '',
-      status: 'qrcode',
+      status: status,
     })
   },
   $apis.requireAuth(),

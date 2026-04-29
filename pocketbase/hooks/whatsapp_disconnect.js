@@ -38,10 +38,24 @@ routerAdd(
       $app.logger().warn('Evolution API logout error', 'error', err.message)
     }
 
-    // Set local status to disconnected and clear phone number
-    instanceRecord.set('status', 'disconnected')
-    instanceRecord.set('phone_number', '')
-    $app.save(instanceRecord)
+    try {
+      // Delete instance in Evolution API
+      $http.send({
+        url: `${baseUrl}/instance/delete/${instanceName}`,
+        method: 'DELETE',
+        headers: { apikey: apiKey },
+        timeout: 15,
+      })
+    } catch (err) {
+      $app.logger().warn('Evolution API delete error', 'error', err.message)
+    }
+
+    // Delete record locally to allow a fresh start
+    try {
+      $app.delete(instanceRecord)
+    } catch (err) {
+      $app.logger().warn('Failed to delete instance record', 'error', err.message)
+    }
 
     return e.json(200, { success: true })
   },

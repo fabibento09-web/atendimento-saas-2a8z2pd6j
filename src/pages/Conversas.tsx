@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import {
   Search,
   Paperclip,
@@ -11,6 +12,7 @@ import {
   Smartphone,
   Loader2,
   LogOut,
+  AlertCircle,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -35,7 +37,10 @@ export default function Conversas() {
   const [isMobileViewChat, setIsMobileViewChat] = useState(false)
   const [search, setSearch] = useState('')
   const [qrCode, setQrCode] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const autoConnectAttempted = useRef(false)
 
   const activeInstance = useMemo(() => {
     return (
@@ -46,15 +51,17 @@ export default function Conversas() {
     )
   }, [instances])
 
-  const connectionStatus = activeInstance?.status || 'disconnected'
+  const connectionStatus = isCreating ? 'creating' : activeInstance?.status || 'disconnected'
 
   const loadInstances = async () => {
-    if (!user) return
+    if (!user) return []
     try {
       const fetchedInstances = await pb.collection('whatsapp_instances').getFullList()
       setInstances(fetchedInstances)
+      return fetchedInstances
     } catch (err) {
       console.error(err)
+      return []
     }
   }
 
@@ -72,7 +79,19 @@ export default function Conversas() {
   }
 
   useEffect(() => {
-    loadInstances()
+    if (!user) return
+    loadInstances().then((insts) => {
+      if (!autoConnectAttempted.current) {
+        autoConnectAttempted.current = true
+        const connected = insts.find(
+          (i) => i.status === 'connected' || i.status === 'qrcode' || i.status === 'creating',
+        )
+        if (!connected) {
+          const disconnected = insts.find((i) => i.status === 'disconnected')
+          handleConnect(disconnected?.instance_name)
+        }
+      }
+    })
   }, [user])
 
   useEffect(() => {
@@ -181,16 +200,24 @@ export default function Conversas() {
     }
   }
 
-  const handleConnect = async () => {
+  const handleConnect = async (existingName?: string) => {
+    setCreateError(null)
+    setIsCreating(true)
     try {
-      let instanceName = activeInstance?.instance_name
+      let instanceName =
+        typeof existingName === 'string' ? existingName : activeInstance?.instance_name
       if (!instanceName || activeInstance?.status === 'disconnected') {
         instanceName = `wapp_${user?.id}_${Date.now()}`
       }
       await createWhatsAppInstanceApi(instanceName)
-      loadInstances()
+      await loadInstances()
     } catch (err: any) {
-      toast.error('Erro ao conectar WhatsApp', { description: err.message })
+      console.error(err)
+      setCreateError(
+        'Erro ao gerar QR Code. Por favor, tente novamente ou desconecte a instância atual',
+      )
+    } finally {
+      setIsCreating(false)
     }
   }
 
@@ -198,9 +225,10 @@ export default function Conversas() {
     if (!activeInstance) return
     if (!window.confirm('Tem certeza que deseja desconectar este número de WhatsApp?')) return
     try {
+      setCreateError(null)
       await disconnectWhatsAppInstanceApi(activeInstance.instance_name)
       setQrCode(null)
-      loadInstances()
+      await loadInstances()
       toast.success('WhatsApp desconectado com sucesso.')
     } catch (err: any) {
       toast.error('Erro ao desconectar WhatsApp', { description: err.message })
@@ -215,57 +243,92 @@ export default function Conversas() {
             <Smartphone className="w-8 h-8 text-primary" />
           </div>
 
-          {connectionStatus === 'disconnected' && (
-            <>
-              <h2 className="font-serif text-2xl font-bold text-foreground mb-3">
-                Conecte seu WhatsApp
-              </h2>
-              <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-                Para começar a gerenciar seus atendimentos, você precisa conectar seu número de
-                WhatsApp lendo o QR Code.
-              </p>
-              <Button onClick={handleConnect} className="w-full h-12 text-base font-medium">
-                Gerar QR Code
-              </Button>
-            </>
-          )}
-
-          {connectionStatus === 'creating' && (
-            <>
-              <h2 className="font-serif text-xl font-bold text-foreground mb-3">
-                Preparando conexão...
-              </h2>
-              <p className="text-sm text-muted-foreground mb-8">
-                Estamos gerando sua instância segura no servidor. Isso leva apenas alguns segundos.
-              </p>
-              <div className="animate-spin text-primary">
-                <Loader2 className="w-8 h-8" />
-              </div>
-            </>
-          )}
-
-          {connectionStatus === 'qrcode' && (
-            <>
-              <h2 className="font-serif text-xl font-bold text-foreground mb-3">
-                Escaneie o QR Code
-              </h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados</strong> e aponte
-                a câmera para o código abaixo.
-              </p>
-              <div className="bg-white p-4 rounded-xl shadow-sm border border-muted/50 mb-6 flex items-center justify-center min-h-[250px] min-w-[250px]">
-                {qrCode ? (
-                  <img src={qrCode} alt="WhatsApp QR Code" className="w-48 h-48" />
-                ) : (
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span className="text-xs font-medium">Carregando código...</span>
-                  </div>
+          {createError ? (
+            <div className="w-full">
+              <Alert variant="destructive" className="mb-6 text-left">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Erro</AlertTitle>
+                <AlertDescription className="mt-2 text-sm leading-relaxed">
+                  {createError}
+                </AlertDescription>
+              </Alert>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => handleConnect()}
+                  className="flex-1 h-12 text-base font-medium"
+                >
+                  Tentar Novamente
+                </Button>
+                {activeInstance && (
+                  <Button
+                    variant="outline"
+                    onClick={handleDisconnect}
+                    className="flex-1 h-12 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    Desconectar
+                  </Button>
                 )}
               </div>
-              <Button variant="outline" onClick={handleDisconnect} className="w-full">
-                Cancelar
-              </Button>
+            </div>
+          ) : (
+            <>
+              {connectionStatus === 'disconnected' && (
+                <>
+                  <h2 className="font-serif text-2xl font-bold text-foreground mb-3">
+                    Conecte seu WhatsApp
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+                    Para começar a gerenciar seus atendimentos, você precisa conectar seu número de
+                    WhatsApp lendo o QR Code.
+                  </p>
+                  <Button
+                    onClick={() => handleConnect()}
+                    className="w-full h-12 text-base font-medium"
+                  >
+                    Gerar QR Code
+                  </Button>
+                </>
+              )}
+
+              {connectionStatus === 'creating' && (
+                <>
+                  <h2 className="font-serif text-xl font-bold text-foreground mb-3">
+                    Preparando conexão...
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-8">
+                    Estamos gerando sua instância segura no servidor. Isso leva apenas alguns
+                    segundos.
+                  </p>
+                  <div className="animate-spin text-primary">
+                    <Loader2 className="w-8 h-8" />
+                  </div>
+                </>
+              )}
+
+              {connectionStatus === 'qrcode' && (
+                <>
+                  <h2 className="font-serif text-xl font-bold text-foreground mb-3">
+                    Escaneie o QR Code
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados</strong> e
+                    aponte a câmera para o código abaixo.
+                  </p>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-muted/50 mb-6 flex items-center justify-center min-h-[250px] min-w-[250px]">
+                    {qrCode ? (
+                      <img src={qrCode} alt="WhatsApp QR Code" className="w-48 h-48" />
+                    ) : (
+                      <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                        <span className="text-xs font-medium">Carregando código...</span>
+                      </div>
+                    )}
+                  </div>
+                  <Button variant="outline" onClick={handleDisconnect} className="w-full">
+                    Desconectar
+                  </Button>
+                </>
+              )}
             </>
           )}
         </div>
