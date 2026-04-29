@@ -25,11 +25,14 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
+import { sendWhatsAppMessage } from '@/services/whatsapp_messages'
+import { toast } from 'sonner'
 
 export default function Conversas() {
   const { user } = useAuth()
   const [chats, setChats] = useState<any[]>([])
   const [tags, setTags] = useState<any[]>([])
+  const [instances, setInstances] = useState<any[]>([])
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [isMobileViewChat, setIsMobileViewChat] = useState(false)
@@ -43,8 +46,10 @@ export default function Conversas() {
         .collection('conversations')
         .getFullList({ sort: '-updated', expand: 'tags' })
       const fetchedTags = await pb.collection('categories').getFullList({ sort: '-created' })
+      const fetchedInstances = await pb.collection('whatsapp_instances').getFullList()
       setChats(fetchedChats)
       setTags(fetchedTags)
+      setInstances(fetchedInstances)
 
       if (!activeChatId && fetchedChats.length > 0) {
         setActiveChatId(fetchedChats[0].id)
@@ -65,13 +70,30 @@ export default function Conversas() {
     (c.contact_name || '').toLowerCase().includes(search.toLowerCase()),
   )
 
-  const handleSend = () => {
-    if (!message.trim() || !activeChatId) return
-    pb.collection('conversations')
-      .update(activeChatId, { last_message: message })
-      .then(() => {
-        setMessage('')
-      })
+  const handleSend = async () => {
+    if (!message.trim() || !activeChatId || !activeChat) return
+
+    const instance = instances.find((i) => i.status === 'connected') || instances[0]
+    if (!instance) {
+      toast.error('Nenhuma instância do WhatsApp encontrada. Conecte uma instância primeiro.')
+      return
+    }
+
+    const number = activeChat.contact_phone
+    if (!number) {
+      toast.error('Este contato não possui um número de telefone válido.')
+      return
+    }
+
+    try {
+      await sendWhatsAppMessage(instance.instance_name, number, message)
+      await pb.collection('conversations').update(activeChatId, { last_message: message })
+      setMessage('')
+      toast.success('Mensagem enviada com sucesso!')
+    } catch (err: any) {
+      console.error(err)
+      toast.error('Falha ao enviar mensagem', { description: err.message })
+    }
   }
 
   const addTagToChat = async (chatId: string, tagId: string) => {

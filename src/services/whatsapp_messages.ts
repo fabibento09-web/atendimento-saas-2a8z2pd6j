@@ -27,3 +27,11 @@ export const getAllMessagesForInstance = (instanceName: string) => {
     sort: '-timestamp',
   })
 }
+
+export const sendWhatsAppMessage = (instanceName: string, number: string, text: string) => {
+  return pb.send('/backend/v1/whatsapp/send-message', {
+    method: 'POST',
+    body: JSON.stringify({ instanceName, number, text }),
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
