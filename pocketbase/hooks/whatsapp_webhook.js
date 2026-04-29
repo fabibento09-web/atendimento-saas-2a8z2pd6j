@@ -162,6 +162,13 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
             }
             convRecord.set('last_message', content)
 
+            if (!key.fromMe) {
+              const currentUnread = convRecord.getInt('unread_count') || 0
+              convRecord.set('unread_count', currentUnread + 1)
+            } else {
+              convRecord.set('unread_count', 0)
+            }
+
             const apiUrl = $secrets.get('EVOLUTION_API_URL')
             const apiKey = $secrets.get('EVOLUTION_API_KEY')
             const baseUrl = apiUrl && apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl

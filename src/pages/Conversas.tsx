@@ -214,6 +214,7 @@ export default function Conversas() {
           type: meta?.type || (isGroup ? 'group' : 'individual'),
           avatar_url: avatarUrl,
           contact_name: meta?.contact_name || c.push_name || c.remote_jid,
+          unread_count: meta?.unread_count || 0,
         }
       })
       .sort((a, b) => b.timestamp - a.timestamp)
@@ -238,6 +239,15 @@ export default function Conversas() {
   }, [messages, activeJid])
 
   const activeConversation = conversations.find((c) => c.remote_jid === activeJid)
+
+  useEffect(() => {
+    if (activeJid) {
+      const meta = conversationsMeta.find((m) => m.remote_jid === activeJid)
+      if (meta && meta.unread_count > 0) {
+        pb.collection('conversations').update(meta.id, { unread_count: 0 }).catch(console.error)
+      }
+    }
+  }, [activeJid, conversationsMeta])
 
   const handleSend = async () => {
     if (!inputText.trim() || !activeJid || !activeInstance || activeInstance.status !== 'connected')
@@ -473,7 +483,12 @@ export default function Conversas() {
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-0.5">
                     <div className="flex items-center gap-1.5 truncate pr-2">
-                      <span className="font-medium text-sm truncate text-foreground">
+                      <span
+                        className={cn(
+                          'text-sm truncate text-foreground',
+                          chat.unread_count > 0 ? 'font-bold' : 'font-medium',
+                        )}
+                      >
                         {chat.contact_name}
                       </span>
                       {chat.is_group && (
@@ -482,16 +497,35 @@ export default function Conversas() {
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                    <span
+                      className={cn(
+                        'text-[10px] shrink-0 mt-0.5',
+                        chat.unread_count > 0 ? 'text-primary font-bold' : 'text-muted-foreground',
+                      )}
+                    >
                       {new Date(chat.timestamp * 1000).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                     </span>
                   </div>
-                  <p className="text-xs truncate text-muted-foreground">
-                    {chat.content || 'Nenhuma mensagem.'}
-                  </p>
+                  <div className="flex justify-between items-center gap-2 mt-0.5">
+                    <p
+                      className={cn(
+                        'text-xs truncate flex-1',
+                        chat.unread_count > 0
+                          ? 'text-foreground font-medium'
+                          : 'text-muted-foreground',
+                      )}
+                    >
+                      {chat.content || 'Nenhuma mensagem.'}
+                    </p>
+                    {chat.unread_count > 0 && (
+                      <div className="shrink-0 bg-primary text-primary-foreground text-[10px] font-bold h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center shadow-sm">
+                        {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

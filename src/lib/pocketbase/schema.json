@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T20:38:29.732Z",
+  "generatedAt": "2026-04-29T20:56:07.149Z",
   "collections": [
     {
       "name": "users",
@@ -188,6 +188,12 @@
         {
           "name": "picture_fetched_at",
           "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unread_count",
+          "type": "number",
           "required": false,
           "system": false
         }
