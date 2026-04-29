@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T20:21:03.601Z",
+  "generatedAt": "2026-04-29T20:38:29.732Z",
   "collections": [
     {
       "name": "users",
@@ -169,6 +169,25 @@
         {
           "name": "instance_name",
           "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "type",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["individual", "group"]
+        },
+        {
+          "name": "avatar",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "picture_fetched_at",
+          "type": "date",
           "required": false,
           "system": false
         }

@@ -197,10 +197,22 @@ export default function Conversas() {
     return Array.from(map.values())
       .map((c) => {
         const meta = conversationsMeta.find((meta) => meta.remote_jid === c.remote_jid)
+        const isGroup = meta
+          ? meta.type === 'group' || meta.is_group
+          : c.remote_jid.includes('@g.us')
+
+        let avatarUrl = null
+        if (meta && meta.avatar) {
+          avatarUrl = pb.files.getUrl(meta, meta.avatar)
+        } else if (meta?.avatar_url && meta.avatar_url !== 'none') {
+          avatarUrl = meta.avatar_url
+        }
+
         return {
           ...c,
-          is_group: meta ? meta.is_group : c.remote_jid.includes('@g.us'),
-          avatar_url: meta?.avatar_url === 'none' ? null : meta?.avatar_url,
+          is_group: isGroup,
+          type: meta?.type || (isGroup ? 'group' : 'individual'),
+          avatar_url: avatarUrl,
           contact_name: meta?.contact_name || c.push_name || c.remote_jid,
         }
       })
