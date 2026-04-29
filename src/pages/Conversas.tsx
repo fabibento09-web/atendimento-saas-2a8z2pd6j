@@ -465,7 +465,7 @@ export default function Conversas() {
                   setIsMobileViewChat(true)
                 }}
                 className={cn(
-                  'p-4 cursor-pointer transition-all flex gap-3 hover:bg-muted/50 relative overflow-hidden',
+                  'p-4 cursor-pointer transition-all flex gap-3 hover:bg-muted/50 relative overflow-hidden w-full min-w-0',
                   activeJid === chat.remote_jid
                     ? 'bg-primary/5 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary'
                     : 'bg-transparent',
@@ -483,10 +483,10 @@ export default function Conversas() {
                 </Avatar>
                 <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
                   <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0 max-w-full">
                       <span
                         className={cn(
-                          'text-sm truncate text-foreground block',
+                          'text-sm truncate text-foreground block min-w-0 shrink',
                           chat.unread_count > 0 && activeJid !== chat.remote_jid
                             ? 'font-bold'
                             : 'font-medium',
@@ -502,7 +502,7 @@ export default function Conversas() {
                     </div>
                     <p
                       className={cn(
-                        'text-xs truncate block w-full',
+                        'text-xs truncate block w-full min-w-0',
                         chat.unread_count > 0 && activeJid !== chat.remote_jid
                           ? 'text-foreground font-medium'
                           : 'text-muted-foreground',
