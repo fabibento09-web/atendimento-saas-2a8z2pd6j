@@ -17,6 +17,10 @@ import {
   FileText,
   Download,
   Eye,
+  Image as ImageIcon,
+  Video,
+  Mic,
+  StickyNote,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog'
@@ -604,18 +608,36 @@ export default function Conversas() {
               </div>
 
               {activeChatMessages.map((msg) => {
+                const renderType = msg.media_type || msg.message_type
                 const isMedia = ['image', 'video', 'audio', 'document', 'sticker'].includes(
-                  msg.message_type,
+                  renderType,
                 )
                 const hasMedia = !!msg.media_url
                 const mediaError = isMedia && !hasMedia
+
+                const getErrorIcon = () => {
+                  switch (renderType) {
+                    case 'image':
+                      return <ImageIcon className="w-4 h-4" />
+                    case 'video':
+                      return <Video className="w-4 h-4" />
+                    case 'audio':
+                      return <Mic className="w-4 h-4" />
+                    case 'document':
+                      return <FileText className="w-4 h-4" />
+                    case 'sticker':
+                      return <StickyNote className="w-4 h-4" />
+                    default:
+                      return <AlertCircle className="w-4 h-4" />
+                  }
+                }
 
                 return (
                   <div
                     key={msg.id}
                     className={cn('flex w-full', msg.from_me ? 'justify-end' : 'justify-start')}
                   >
-                    {msg.message_type === 'sticker' && msg.from_me && (
+                    {renderType === 'sticker' && msg.from_me && (
                       <span className="text-[10px] mt-auto mr-2 mb-2 text-muted-foreground font-medium shrink-0">
                         {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
                           hour: '2-digit',
@@ -627,7 +649,7 @@ export default function Conversas() {
                     <div
                       className={cn(
                         'max-w-[85%] md:max-w-[70%] shadow-sm relative group rounded-2xl border overflow-hidden',
-                        msg.message_type === 'sticker'
+                        renderType === 'sticker'
                           ? 'bg-transparent border-transparent shadow-none'
                           : msg.from_me
                             ? 'bg-[#2d4635] text-white rounded-tr-sm border-[#2d4635] p-2'
@@ -636,23 +658,19 @@ export default function Conversas() {
                     >
                       {mediaError ? (
                         <div className="flex items-center gap-2 p-2 text-sm italic opacity-70">
-                          <AlertCircle className="w-4 h-4" />
-                          Mídia indisponível — tente reenviar
+                          {getErrorIcon()}
+                          Mídia indisponível
                         </div>
                       ) : (
                         <>
-                          {msg.message_type === 'text' || !msg.message_type ? (
-                            <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1.5">
-                              {msg.content}
-                            </p>
-                          ) : msg.message_type === 'image' ? (
+                          {renderType === 'image' ? (
                             <div className="flex flex-col gap-2">
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <img
                                     src={msg.media_url}
                                     alt="Imagem recebida"
-                                    className="max-w-full max-h-[300px] object-contain rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                    className="max-w-full max-h-[300px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                   />
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl p-1 bg-transparent border-none shadow-none flex justify-center [&>button]:bg-background [&>button]:text-foreground [&>button]:rounded-full [&>button]:p-1 [&>button]:shadow-md">
@@ -669,12 +687,12 @@ export default function Conversas() {
                                 </p>
                               )}
                             </div>
-                          ) : msg.message_type === 'video' ? (
+                          ) : renderType === 'video' ? (
                             <div className="flex flex-col gap-2">
                               <video
                                 src={msg.media_url}
                                 controls
-                                className="max-w-full max-h-[300px] rounded"
+                                className="max-w-full max-h-[300px] rounded-lg"
                               />
                               {(msg.caption || msg.content) && (
                                 <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
@@ -682,15 +700,15 @@ export default function Conversas() {
                                 </p>
                               )}
                             </div>
-                          ) : msg.message_type === 'audio' ? (
-                            <div className="py-2">
+                          ) : renderType === 'audio' ? (
+                            <div className="py-2 w-full">
                               <audio
                                 src={msg.media_url}
                                 controls
-                                className="max-w-full w-[250px] md:w-[300px]"
+                                className="w-full min-w-[250px] md:min-w-[300px]"
                               />
                             </div>
-                          ) : msg.message_type === 'document' ? (
+                          ) : renderType === 'document' ? (
                             <div className="flex flex-col gap-3 p-2 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-primary/20 text-primary rounded-lg flex items-center justify-center shrink-0">
@@ -746,7 +764,7 @@ export default function Conversas() {
                                 </p>
                               )}
                             </div>
-                          ) : msg.message_type === 'sticker' ? (
+                          ) : renderType === 'sticker' ? (
                             <img
                               src={msg.media_url}
                               alt="Sticker"
@@ -760,7 +778,7 @@ export default function Conversas() {
                         </>
                       )}
 
-                      {msg.message_type !== 'sticker' && (
+                      {renderType !== 'sticker' && (
                         <span
                           className={cn(
                             'text-[10px] mt-1 block text-right font-medium px-1.5 pb-0.5',
@@ -775,7 +793,7 @@ export default function Conversas() {
                       )}
                     </div>
 
-                    {msg.message_type === 'sticker' && !msg.from_me && (
+                    {renderType === 'sticker' && !msg.from_me && (
                       <span className="text-[10px] mt-auto ml-2 mb-2 text-muted-foreground font-medium shrink-0">
                         {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
                           hour: '2-digit',
