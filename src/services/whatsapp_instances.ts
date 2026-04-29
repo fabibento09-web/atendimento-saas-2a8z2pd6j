@@ -37,3 +37,9 @@ export const createWhatsAppInstanceApi = (instanceName: string) =>
     method: 'POST',
     body: JSON.stringify({ instanceName }),
   })
+
+export const disconnectWhatsAppInstanceApi = (instanceName: string) =>
+  pb.send<{ success: boolean }>('/backend/v1/whatsapp/disconnect', {
+    method: 'POST',
+    body: JSON.stringify({ instanceName }),
+  })

@@ -1,7 +1,17 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Paperclip, Smile, Send, ChevronLeft, MessageSquare } from 'lucide-react'
+import {
+  Search,
+  Paperclip,
+  Smile,
+  Send,
+  ChevronLeft,
+  MessageSquare,
+  Smartphone,
+  Loader2,
+  LogOut,
+} from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -9,6 +19,11 @@ import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useRealtime } from '@/hooks/use-realtime'
 import { sendWhatsAppMessage } from '@/services/whatsapp_messages'
+import {
+  createWhatsAppInstanceApi,
+  checkWhatsAppInstanceStatus,
+  disconnectWhatsAppInstanceApi,
+} from '@/services/whatsapp_instances'
 import { toast } from 'sonner'
 
 export default function Conversas() {
@@ -19,11 +34,19 @@ export default function Conversas() {
   const [inputText, setInputText] = useState('')
   const [isMobileViewChat, setIsMobileViewChat] = useState(false)
   const [search, setSearch] = useState('')
+  const [qrCode, setQrCode] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const activeInstance = useMemo(() => {
-    return instances.find((i) => i.status === 'connected') || instances[0]
+    return (
+      instances.find((i) => i.status === 'connected') ||
+      instances.find((i) => i.status === 'qrcode') ||
+      instances.find((i) => i.status === 'creating') ||
+      instances[0]
+    )
   }, [instances])
+
+  const connectionStatus = activeInstance?.status || 'disconnected'
 
   const loadInstances = async () => {
     if (!user) return
@@ -36,7 +59,7 @@ export default function Conversas() {
   }
 
   const loadMessages = async () => {
-    if (!activeInstance) return
+    if (!activeInstance || activeInstance.status !== 'connected') return
     try {
       const fetchedMessages = await pb.collection('whatsapp_messages').getFullList({
         filter: `instance_name = "${activeInstance.instance_name}"`,
@@ -53,13 +76,19 @@ export default function Conversas() {
   }, [user])
 
   useEffect(() => {
-    if (activeInstance) {
+    if (activeInstance && activeInstance.status === 'connected') {
       loadMessages()
     }
-  }, [activeInstance])
+  }, [activeInstance?.instance_name, activeInstance?.status])
+
+  useRealtime('whatsapp_instances', (e) => {
+    if (e.record.user_id === user?.id) {
+      loadInstances()
+    }
+  })
 
   useRealtime('whatsapp_messages', (e) => {
-    if (!activeInstance) return
+    if (!activeInstance || activeInstance.status !== 'connected') return
     if (e.action === 'create') {
       const newMsg = e.record
       if (newMsg.instance_name === activeInstance.instance_name) {
@@ -72,6 +101,33 @@ export default function Conversas() {
       loadMessages()
     }
   })
+
+  useEffect(() => {
+    let interval: any
+    if (
+      activeInstance &&
+      (activeInstance.status === 'qrcode' || activeInstance.status === 'creating')
+    ) {
+      const checkStatus = async () => {
+        try {
+          const res = await checkWhatsAppInstanceStatus(activeInstance.instance_name)
+          if (res.status === 'qrcode' && res.qrcodeBase64) {
+            setQrCode(res.qrcodeBase64)
+          } else if (res.status === 'connected') {
+            setQrCode(null)
+          }
+        } catch (err) {
+          console.error(err)
+        }
+      }
+
+      checkStatus()
+      interval = setInterval(checkStatus, 5000)
+    } else if (activeInstance?.status === 'connected') {
+      setQrCode(null)
+    }
+    return () => clearInterval(interval)
+  }, [activeInstance?.status, activeInstance?.instance_name])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -111,7 +167,8 @@ export default function Conversas() {
   const activeConversation = conversations.find((c) => c.remote_jid === activeJid)
 
   const handleSend = async () => {
-    if (!inputText.trim() || !activeJid || !activeInstance) return
+    if (!inputText.trim() || !activeJid || !activeInstance || activeInstance.status !== 'connected')
+      return
 
     const number = activeJid.replace('@s.whatsapp.net', '')
 
@@ -124,6 +181,98 @@ export default function Conversas() {
     }
   }
 
+  const handleConnect = async () => {
+    try {
+      let instanceName = activeInstance?.instance_name
+      if (!instanceName || activeInstance?.status === 'disconnected') {
+        instanceName = `wapp_${user?.id}_${Date.now()}`
+      }
+      await createWhatsAppInstanceApi(instanceName)
+      loadInstances()
+    } catch (err: any) {
+      toast.error('Erro ao conectar WhatsApp', { description: err.message })
+    }
+  }
+
+  const handleDisconnect = async () => {
+    if (!activeInstance) return
+    if (!window.confirm('Tem certeza que deseja desconectar este número de WhatsApp?')) return
+    try {
+      await disconnectWhatsAppInstanceApi(activeInstance.instance_name)
+      setQrCode(null)
+      loadInstances()
+      toast.success('WhatsApp desconectado com sucesso.')
+    } catch (err: any) {
+      toast.error('Erro ao desconectar WhatsApp', { description: err.message })
+    }
+  }
+
+  if (connectionStatus !== 'connected') {
+    return (
+      <div className="flex h-[calc(100vh-6.5rem)] items-center justify-center rounded-xl border border-muted bg-card shadow-sm animate-fade-in p-4">
+        <div className="max-w-md w-full bg-background border border-muted rounded-xl p-8 flex flex-col items-center text-center shadow-sm">
+          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+            <Smartphone className="w-8 h-8 text-primary" />
+          </div>
+
+          {connectionStatus === 'disconnected' && (
+            <>
+              <h2 className="font-serif text-2xl font-bold text-foreground mb-3">
+                Conecte seu WhatsApp
+              </h2>
+              <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+                Para começar a gerenciar seus atendimentos, você precisa conectar seu número de
+                WhatsApp lendo o QR Code.
+              </p>
+              <Button onClick={handleConnect} className="w-full h-12 text-base font-medium">
+                Gerar QR Code
+              </Button>
+            </>
+          )}
+
+          {connectionStatus === 'creating' && (
+            <>
+              <h2 className="font-serif text-xl font-bold text-foreground mb-3">
+                Preparando conexão...
+              </h2>
+              <p className="text-sm text-muted-foreground mb-8">
+                Estamos gerando sua instância segura no servidor. Isso leva apenas alguns segundos.
+              </p>
+              <div className="animate-spin text-primary">
+                <Loader2 className="w-8 h-8" />
+              </div>
+            </>
+          )}
+
+          {connectionStatus === 'qrcode' && (
+            <>
+              <h2 className="font-serif text-xl font-bold text-foreground mb-3">
+                Escaneie o QR Code
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados</strong> e aponte
+                a câmera para o código abaixo.
+              </p>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-muted/50 mb-6 flex items-center justify-center min-h-[250px] min-w-[250px]">
+                {qrCode ? (
+                  <img src={qrCode} alt="WhatsApp QR Code" className="w-48 h-48" />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <span className="text-xs font-medium">Carregando código...</span>
+                  </div>
+                )}
+              </div>
+              <Button variant="outline" onClick={handleDisconnect} className="w-full">
+                Cancelar
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const emptyState = (
     <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-6 bg-background h-full text-center">
       <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6 shadow-sm border border-primary/10">
@@ -131,19 +280,10 @@ export default function Conversas() {
       </div>
       <h3 className="font-serif text-2xl font-bold text-primary">Nenhuma conversa</h3>
       <p className="text-sm mt-3 max-w-sm leading-relaxed">
-        Sua caixa de entrada está vazia. Quando a sincronização do WhatsApp for configurada, suas
-        mensagens aparecerão aqui.
+        Sua caixa de entrada está vazia. Quando você receber novas mensagens, elas aparecerão aqui.
       </p>
     </div>
   )
-
-  if (conversations.length === 0 && search === '') {
-    return (
-      <div className="flex h-[calc(100vh-6.5rem)] overflow-hidden rounded-xl border border-muted bg-card shadow-sm animate-fade-in justify-center items-center">
-        {emptyState}
-      </div>
-    )
-  }
 
   return (
     <div className="flex h-[calc(100vh-6.5rem)] overflow-hidden rounded-xl border border-muted bg-card shadow-sm animate-fade-in">
@@ -154,7 +294,22 @@ export default function Conversas() {
         )}
       >
         <div className="p-4 border-b border-muted bg-card z-10 shadow-sm">
-          <h2 className="font-serif text-xl font-bold mb-4 text-primary">Conversas</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-serif text-xl font-bold text-primary">Conversas</h2>
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+              <span className="text-xs font-medium text-muted-foreground mr-1">Conectado</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                onClick={handleDisconnect}
+                title="Desconectar WhatsApp"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -167,7 +322,8 @@ export default function Conversas() {
         </div>
         <ScrollArea className="flex-1 bg-card">
           <div className="divide-y divide-muted">
-            {filteredConversations.length === 0 ? (
+            {conversations.length === 0 && search === '' ? emptyState : null}
+            {filteredConversations.length === 0 && search !== '' ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
                 Nenhum contato encontrado com "{search}".
               </div>
