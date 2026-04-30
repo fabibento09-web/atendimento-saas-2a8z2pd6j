@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Search,
   Paperclip,
@@ -21,6 +22,8 @@ import {
   Video,
   Mic,
   StickyNote,
+  UserPlus,
+  Check,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -50,8 +53,11 @@ import {
 } from '@/services/whatsapp_instances'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { addToCrm, findCrmContactByJid } from '@/services/crm_contacts'
 
 export default function Conversas() {
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [messages, setMessages] = useState<any[]>([])
   const [conversationsMeta, setConversationsMeta] = useState<any[]>([])
@@ -72,6 +78,9 @@ export default function Conversas() {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false)
   const [showMediaModal, setShowMediaModal] = useState(false)
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'document' | 'audio' | null>(null)
+
+  const [crmStatus, setCrmStatus] = useState<'loading' | 'none' | 'added'>('none')
+  const [crmContactId, setCrmContactId] = useState<string | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const autoConnectAttempted = useRef(false)
@@ -282,10 +291,55 @@ export default function Conversas() {
   }, [messages, conversationsMeta])
 
   useEffect(() => {
-    if (!activeJid && conversations.length > 0) {
+    const urlJid = searchParams.get('jid')
+    if (urlJid && conversations.length > 0 && activeJid !== urlJid) {
+      setActiveJid(urlJid)
+      setIsMobileViewChat(true)
+    } else if (!activeJid && conversations.length > 0) {
       setActiveJid(conversations[0].remote_jid)
     }
-  }, [conversations, activeJid])
+  }, [conversations, activeJid, searchParams])
+
+  useEffect(() => {
+    if (!activeJid || !activeInstance) {
+      setCrmStatus('none')
+      setCrmContactId(null)
+      return
+    }
+
+    const isGroup = conversations.find((c) => c.remote_jid === activeJid)?.is_group
+    if (isGroup) {
+      setCrmStatus('none')
+      return
+    }
+
+    setCrmStatus('loading')
+    findCrmContactByJid(activeInstance.instance_name, activeJid)
+      .then((record) => {
+        if (record) {
+          setCrmStatus('added')
+          setCrmContactId(record.id)
+        } else {
+          setCrmStatus('none')
+          setCrmContactId(null)
+        }
+      })
+      .catch(() => setCrmStatus('none'))
+  }, [activeJid, activeInstance?.instance_name, conversations])
+
+  const handleAddToCrm = async () => {
+    if (!activeJid || !activeInstance) return
+    try {
+      setCrmStatus('loading')
+      const record = await addToCrm(activeInstance.instance_name, activeJid)
+      setCrmStatus('added')
+      setCrmContactId(record.id)
+      toast.success('Contato adicionado ao CRM com sucesso!')
+    } catch (err: any) {
+      toast.error('Erro ao adicionar ao CRM')
+      setCrmStatus('none')
+    }
+  }
 
   const filteredConversations = conversations.filter((c) => {
     const name = c.contact_name || c.remote_jid || ''
@@ -713,6 +767,32 @@ export default function Conversas() {
                   <p className="text-xs text-muted-foreground">{activeConversation.remote_jid}</p>
                 </div>
               </div>
+
+              {!activeConversation.is_group && (
+                <div className="ml-auto hidden sm:flex pr-2">
+                  {crmStatus === 'loading' ? (
+                    <Button variant="outline" size="sm" disabled>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Verificando...
+                    </Button>
+                  ) : crmStatus === 'added' ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-green-600 border-green-200 bg-green-50/50 hover:bg-green-50"
+                      onClick={() => navigate(`/crm?contact=${crmContactId}`)}
+                    >
+                      <Check className="w-4 h-4 mr-2" />
+                      Ver no CRM
+                    </Button>
+                  ) : crmStatus === 'none' ? (
+                    <Button variant="outline" size="sm" onClick={handleAddToCrm}>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Adicionar ao CRM
+                    </Button>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             <div

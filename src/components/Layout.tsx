@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom'
-import { MessageSquare, LayoutDashboard, Tags, Bell, Search, LogOut } from 'lucide-react'
+import { MessageSquare, LayoutDashboard, Tags, Bell, Search, LogOut, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   SidebarProvider,
@@ -66,6 +66,14 @@ function AppSidebar() {
                 <Link to="/categorias">
                   <Tags />
                   <span>Categorias</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={location.pathname === '/crm'} tooltip="CRM">
+                <Link to="/crm">
+                  <Users />
+                  <span>CRM</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

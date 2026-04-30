@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-30T13:50:47.833Z",
+  "generatedAt": "2026-04-30T14:16:59.818Z",
   "collections": [
     {
       "name": "users",
@@ -420,6 +420,147 @@
       ],
       "indexes": [
         "CREATE INDEX idx_whatsapp_messages_instance_jid ON whatsapp_messages (instance_name, remote_jid)"
+      ]
+    },
+    {
+      "name": "crm_contacts",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != '' && user_id = @request.auth.id",
+        "view": "@request.auth.id != '' && user_id = @request.auth.id",
+        "create": "@request.auth.id != '' && @request.body.user_id = @request.auth.id",
+        "update": "@request.auth.id != '' && user_id = @request.auth.id",
+        "delete": "@request.auth.id != '' && user_id = @request.auth.id"
+      },
+      "fields": [
+        {
+          "name": "user_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "instance_name",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "jid",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "phone",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "push_name",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar_file",
+          "type": "file",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "avatar_url",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "status_text",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "is_business",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "business_category",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "business_description",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "business_email",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "business_website",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "business_address",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "business_hours",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "stage",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["lead", "em_atendimento", "cliente", "perdido"]
+        },
+        {
+          "name": "notes",
+          "type": "editor",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "last_synced_at",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_crm_contacts_user_instance_jid ON crm_contacts (user_id, instance_name, jid)",
+        "CREATE INDEX idx_crm_contacts_stage ON crm_contacts (stage)"
       ]
     }
   ]

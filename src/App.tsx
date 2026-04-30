@@ -6,6 +6,7 @@ import Index from './pages/Index'
 import Home from './pages/Home'
 import Conversas from './pages/Conversas'
 import Categorias from './pages/Categorias'
+import CRM from './pages/CRM'
 import NotFound from './pages/NotFound'
 import { Layout } from './components/Layout'
 import { AppProvider } from './stores/use-app-store'
@@ -24,6 +25,7 @@ const App = () => (
               <Route path="/home" element={<Home />} />
               <Route path="/conversas" element={<Conversas />} />
               <Route path="/categorias" element={<Categorias />} />
+              <Route path="/crm" element={<CRM />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
