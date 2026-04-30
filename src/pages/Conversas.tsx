@@ -475,10 +475,10 @@ export default function Conversas() {
 
   if (connectionStatus !== 'connected') {
     return (
-      <div className="flex h-full items-center justify-center bg-card animate-fade-in p-4">
-        <div className="max-w-md w-full bg-background border border-muted rounded-xl p-8 flex flex-col items-center text-center shadow-sm">
-          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-            <Smartphone className="w-8 h-8 text-primary" />
+      <div className="flex h-full items-center justify-center bg-transparent animate-fade-in-up p-4">
+        <div className="max-w-md w-full bg-white/95 backdrop-blur-sm border border-brand-cream-dark rounded-xl p-8 flex flex-col items-center text-center shadow-soft">
+          <div className="w-16 h-16 bg-brand-primary/10 rounded-full flex items-center justify-center mb-6">
+            <Smartphone className="w-8 h-8 text-brand-primary" />
           </div>
 
           {createError ? (
@@ -512,10 +512,10 @@ export default function Conversas() {
             <>
               {connectionStatus === 'disconnected' && (
                 <>
-                  <h2 className="font-serif text-2xl font-bold text-foreground mb-3">
+                  <h2 className="font-serif text-2xl font-bold text-brand-primary mb-3">
                     Conecte seu WhatsApp
                   </h2>
-                  <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+                  <p className="text-sm text-brand-muted mb-8 leading-relaxed">
                     Para começar a gerenciar seus atendimentos, você precisa conectar seu número de
                     WhatsApp lendo o QR Code.
                   </p>
@@ -530,14 +530,14 @@ export default function Conversas() {
 
               {connectionStatus === 'creating' && (
                 <>
-                  <h2 className="font-serif text-xl font-bold text-foreground mb-3">
+                  <h2 className="font-serif text-xl font-bold text-brand-primary mb-3">
                     Preparando conexão...
                   </h2>
-                  <p className="text-sm text-muted-foreground mb-8">
+                  <p className="text-sm text-brand-muted mb-8">
                     Estamos gerando sua instância segura no servidor. Isso leva apenas alguns
                     segundos.
                   </p>
-                  <div className="animate-spin text-primary">
+                  <div className="animate-spin text-brand-primary">
                     <Loader2 className="w-8 h-8" />
                   </div>
                 </>
@@ -545,14 +545,14 @@ export default function Conversas() {
 
               {connectionStatus === 'qrcode' && (
                 <>
-                  <h2 className="font-serif text-xl font-bold text-foreground mb-3">
+                  <h2 className="font-serif text-xl font-bold text-brand-primary mb-3">
                     Escaneie o QR Code
                   </h2>
-                  <p className="text-sm text-muted-foreground mb-6">
+                  <p className="text-sm text-brand-muted mb-6">
                     Abra o WhatsApp no seu celular, vá em <strong>Aparelhos Conectados</strong> e
                     aponte a câmera para o código abaixo.
                   </p>
-                  <div className="bg-white p-4 rounded-xl shadow-sm border border-muted/50 mb-6 flex items-center justify-center min-h-[250px] min-w-[250px]">
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-brand-cream-dark mb-6 flex items-center justify-center min-h-[250px] min-w-[250px]">
                     {qrCode ? (
                       <img src={qrCode} alt="WhatsApp QR Code" className="w-48 h-48" />
                     ) : (
@@ -610,11 +610,11 @@ export default function Conversas() {
   }
 
   const emptyState = (
-    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-6 bg-background h-full text-center">
-      <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6 shadow-sm border border-primary/10">
-        <MessageSquare className="w-10 h-10 text-primary" />
+    <div className="flex-1 flex flex-col items-center justify-center text-brand-muted p-6 bg-white/50 h-full text-center">
+      <div className="w-20 h-20 bg-brand-primary/5 rounded-full flex items-center justify-center mb-6 shadow-sm border border-brand-primary/10">
+        <MessageSquare className="w-10 h-10 text-brand-primary" />
       </div>
-      <h3 className="font-serif text-2xl font-bold text-primary">Nenhuma conversa</h3>
+      <h3 className="font-serif text-2xl font-bold text-brand-primary">Nenhuma conversa</h3>
       <p className="text-sm mt-3 max-w-sm leading-relaxed">
         Sua caixa de entrada está vazia. Quando você receber novas mensagens, elas aparecerão aqui.
       </p>
@@ -622,15 +622,15 @@ export default function Conversas() {
   )
 
   return (
-    <div className="flex h-full overflow-hidden bg-card animate-fade-in">
+    <div className="flex h-full overflow-hidden bg-transparent animate-fade-in-up border border-brand-cream-dark rounded-xl shadow-soft m-2 md:m-6">
       <div
         className={cn(
-          'w-full md:w-80 lg:w-[380px] border-r border-muted flex flex-col bg-sidebar shrink-0',
+          'w-full md:w-80 lg:w-[380px] border-r border-brand-cream-dark flex flex-col bg-white/95 backdrop-blur-sm shrink-0',
           isMobileViewChat ? 'hidden md:flex' : 'flex',
         )}
       >
-        <ScrollArea className="flex-1 bg-card">
-          <div className="divide-y divide-muted">
+        <ScrollArea className="flex-1">
+          <div className="divide-y divide-brand-cream-dark">
             {conversations.length === 0 && search === '' ? emptyState : null}
             {filteredConversations.length === 0 && search !== '' ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
@@ -645,15 +645,15 @@ export default function Conversas() {
                   setIsMobileViewChat(true)
                 }}
                 className={cn(
-                  'p-4 cursor-pointer transition-all flex gap-3 hover:bg-muted/50 relative overflow-hidden w-full min-w-0',
+                  'p-4 cursor-pointer transition-all flex gap-3 hover:bg-brand-cream/50 relative overflow-hidden w-full min-w-0',
                   activeJid === chat.remote_jid
-                    ? 'bg-primary/5 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-primary'
+                    ? 'bg-brand-cream before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-brand-primary'
                     : 'bg-transparent',
                 )}
               >
-                <Avatar className="shrink-0 w-12 h-12 border border-border shadow-sm">
+                <Avatar className="shrink-0 w-12 h-12 border border-brand-cream-dark shadow-sm">
                   {chat.avatar_url && <AvatarImage src={chat.avatar_url} alt={chat.contact_name} />}
-                  <AvatarFallback className="bg-primary/10 text-primary font-serif">
+                  <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-serif">
                     {chat.is_group ? (
                       <Users className="w-5 h-5" />
                     ) : (
@@ -666,7 +666,7 @@ export default function Conversas() {
                     <div className="flex items-center gap-1.5 min-w-0 max-w-full">
                       <span
                         className={cn(
-                          'text-sm truncate text-foreground block min-w-0 shrink',
+                          'text-sm truncate text-brand-deep block min-w-0 shrink',
                           chat.unread_count > 0 && activeJid !== chat.remote_jid
                             ? 'font-bold'
                             : 'font-medium',
@@ -675,7 +675,7 @@ export default function Conversas() {
                         {chat.contact_name}
                       </span>
                       {chat.is_group && (
-                        <span className="shrink-0 bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                        <span className="shrink-0 bg-brand-primary/10 text-brand-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
                           Grupo
                         </span>
                       )}
@@ -684,8 +684,8 @@ export default function Conversas() {
                       className={cn(
                         'text-xs truncate block w-full min-w-0',
                         chat.unread_count > 0 && activeJid !== chat.remote_jid
-                          ? 'text-foreground font-medium'
-                          : 'text-muted-foreground',
+                          ? 'text-brand-deep font-medium'
+                          : 'text-brand-muted',
                       )}
                     >
                       {chat.content || 'Nenhuma mensagem.'}
@@ -696,8 +696,8 @@ export default function Conversas() {
                       className={cn(
                         'text-[10px] leading-none',
                         chat.unread_count > 0 && activeJid !== chat.remote_jid
-                          ? 'text-primary font-bold'
-                          : 'text-muted-foreground',
+                          ? 'text-brand-primary font-bold'
+                          : 'text-brand-muted',
                       )}
                     >
                       {new Date(chat.timestamp * 1000).toLocaleTimeString([], {
@@ -708,7 +708,7 @@ export default function Conversas() {
                     {chat.unread_count > 0 && activeJid !== chat.remote_jid && (
                       <div
                         className={cn(
-                          'bg-primary text-primary-foreground font-bold w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-sm',
+                          'bg-brand-primary text-white font-bold w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-sm',
                           chat.unread_count > 99 ? 'text-[9px] tracking-tighter' : 'text-[10px]',
                         )}
                       >
@@ -725,27 +725,27 @@ export default function Conversas() {
 
       <div
         className={cn(
-          'flex-1 flex flex-col bg-background',
+          'flex-1 flex flex-col bg-white/95 backdrop-blur-sm',
           !isMobileViewChat ? 'hidden md:flex' : 'flex',
         )}
       >
         {activeConversation ? (
           <>
-            <div className="h-16 border-b border-muted bg-card flex items-center px-4 justify-between shrink-0 z-10 shadow-sm">
+            <div className="h-16 border-b border-brand-cream-dark bg-white/90 flex items-center px-4 justify-between shrink-0 z-10 shadow-sm">
               <div className="flex items-center gap-3">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden -ml-2 text-muted-foreground"
+                  className="md:hidden -ml-2 text-brand-muted"
                   onClick={() => setIsMobileViewChat(false)}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
-                <Avatar className="w-10 h-10 border border-border shadow-sm">
+                <Avatar className="w-10 h-10 border border-brand-cream-dark shadow-sm">
                   {activeConversation.avatar_url && (
                     <AvatarImage src={activeConversation.avatar_url} />
                   )}
-                  <AvatarFallback className="font-serif bg-primary/10 text-primary">
+                  <AvatarFallback className="font-serif bg-brand-primary/10 text-brand-primary">
                     {activeConversation.is_group ? (
                       <Users className="w-4 h-4" />
                     ) : (
@@ -755,16 +755,16 @@ export default function Conversas() {
                 </Avatar>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm text-foreground">
+                    <h3 className="font-semibold text-sm text-brand-deep">
                       {activeConversation.contact_name}
                     </h3>
                     {activeConversation.is_group && (
-                      <span className="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                      <span className="bg-brand-primary/10 text-brand-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
                         Grupo
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">{activeConversation.remote_jid}</p>
+                  <p className="text-xs text-brand-muted">{activeConversation.remote_jid}</p>
                 </div>
               </div>
 
@@ -796,11 +796,11 @@ export default function Conversas() {
             </div>
 
             <div
-              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-noise bg-opacity-30 relative"
+              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-[url('https://img.usecurling.com/p/1000/1000?q=noise&color=gray&dpr=1')] bg-cover relative"
               ref={scrollRef}
             >
               <div className="flex justify-center my-4">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full bg-card shadow-sm border border-muted text-muted-foreground">
+                <span className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full bg-brand-cream shadow-sm border border-brand-cream-dark text-brand-muted">
                   Início da Conversa
                 </span>
               </div>
@@ -886,8 +886,8 @@ export default function Conversas() {
                           renderType === 'sticker'
                             ? 'bg-transparent border-transparent shadow-none'
                             : msg.from_me
-                              ? 'bg-[#2d4635] text-white rounded-tr-sm border-[#2d4635] p-2'
-                              : 'bg-card text-foreground rounded-tl-sm border-muted p-2',
+                              ? 'bg-brand-primary text-white rounded-tr-sm border-brand-primary p-2'
+                              : 'bg-white text-brand-deep rounded-tl-sm border-brand-cream-dark p-2',
                         )}
                       >
                         {mediaError ? (
@@ -1094,11 +1094,11 @@ export default function Conversas() {
               })}
             </div>
 
-            <div className="p-3 md:p-4 bg-card border-t border-muted shrink-0 flex items-end gap-2 shadow-sm z-10">
+            <div className="p-3 md:p-4 bg-white/90 border-t border-brand-cream-dark shrink-0 flex items-end gap-2 shadow-sm z-10">
               <Button
                 variant="ghost"
                 size="icon"
-                className="shrink-0 text-muted-foreground hover:text-primary hidden sm:flex"
+                className="shrink-0 text-brand-muted hover:text-brand-primary hidden sm:flex"
               >
                 <Smile className="w-5 h-5" />
               </Button>
@@ -1108,7 +1108,7 @@ export default function Conversas() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="shrink-0 text-muted-foreground hover:text-primary hidden sm:flex"
+                    className="shrink-0 text-brand-muted hover:text-brand-primary hidden sm:flex"
                   >
                     <Paperclip className="w-5 h-5" />
                   </Button>
@@ -1162,11 +1162,11 @@ export default function Conversas() {
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Digite sua mensagem..."
-                className="flex-1 bg-background border-muted focus-visible:ring-primary shadow-sm h-11"
+                className="flex-1 bg-white border-brand-sage focus-visible:ring-brand-primary shadow-sm h-11"
               />
               <Button
                 onClick={handleSend}
-                className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm h-11 px-4"
+                className="shrink-0 bg-brand-primary hover:bg-brand-secondary text-white shadow-sm h-11 px-4"
               >
                 <span className="hidden sm:inline mr-2 font-medium">Enviar</span>
                 <Send className="w-4 h-4 ml-0.5" />
@@ -1174,11 +1174,13 @@ export default function Conversas() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-noise bg-opacity-20 p-6 h-full">
-            <div className="w-24 h-24 bg-card rounded-full flex items-center justify-center mb-6 shadow-md border border-muted">
-              <MessageSquare className="w-12 h-12 text-primary/40" />
+          <div className="flex-1 flex flex-col items-center justify-center text-brand-muted p-6 h-full">
+            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-soft border border-brand-cream-dark">
+              <MessageSquare className="w-12 h-12 text-brand-primary/40" />
             </div>
-            <h3 className="font-serif text-2xl font-bold text-primary">Selecione uma Conversa</h3>
+            <h3 className="font-serif text-2xl font-bold text-brand-primary">
+              Selecione uma Conversa
+            </h3>
             <p className="text-sm mt-3 max-w-sm text-center leading-relaxed">
               Clique em um contato na lateral para visualizar o histórico de mensagens e responder.
             </p>

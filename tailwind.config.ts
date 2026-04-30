@@ -29,7 +29,21 @@ export default {
         sans: ['Inter', 'sans-serif'],
         serif: ['Fraunces', 'serif'],
       },
+      boxShadow: {
+        soft: 'var(--shadow-soft)',
+        glow: 'var(--shadow-glow)',
+      },
       colors: {
+        brand: {
+          deep: 'var(--brand-deep)',
+          forest: 'var(--brand-forest)',
+          primary: 'var(--brand-primary)',
+          secondary: 'var(--brand-secondary)',
+          muted: 'var(--brand-muted)',
+          cream: 'var(--brand-cream)',
+          'cream-dark': 'var(--brand-cream-dark)',
+          sage: 'var(--brand-sage)',
+        },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

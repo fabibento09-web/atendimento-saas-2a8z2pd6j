@@ -83,11 +83,11 @@ export default function CRM() {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-6 animate-fade-in">
+    <div className="flex flex-col h-full space-y-6 animate-fade-in-up">
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
         <div>
-          <h2 className="text-2xl font-serif font-bold text-foreground">CRM</h2>
-          <p className="text-muted-foreground text-sm">
+          <h2 className="text-3xl font-serif font-bold text-brand-primary">CRM</h2>
+          <p className="text-brand-muted text-sm mt-1">
             Gerencie seus contatos e acompanhe o funil de vendas. ({filteredContacts.length}{' '}
             contatos)
           </p>
@@ -95,12 +95,12 @@ export default function CRM() {
 
         <div className="flex w-full md:w-auto items-center gap-2">
           <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-brand-muted" />
             <Input
               placeholder="Buscar contato..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 bg-background shadow-sm border-muted"
+              className="pl-8"
             />
           </div>
         </div>
@@ -122,14 +122,14 @@ export default function CRM() {
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
         </div>
       ) : filteredContacts.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground bg-card rounded-xl border border-muted p-8 shadow-sm">
-          <div className="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mb-4">
-            <User className="w-8 h-8 text-primary/60" />
+        <div className="flex-1 flex flex-col items-center justify-center text-brand-muted bg-white/95 backdrop-blur-sm rounded-xl border border-brand-cream-dark p-8 shadow-soft">
+          <div className="w-16 h-16 bg-brand-primary/5 rounded-full flex items-center justify-center mb-4">
+            <User className="w-8 h-8 text-brand-primary/60" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground font-serif">
+          <h3 className="text-lg font-semibold text-brand-deep font-serif">
             Nenhum contato encontrado
           </h3>
           <p className="text-sm mt-2 text-center max-w-md leading-relaxed">
@@ -142,12 +142,12 @@ export default function CRM() {
           {filteredContacts.map((contact) => (
             <div
               key={contact.id}
-              className={`bg-card rounded-xl border shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md ${highlightContactId === contact.id ? 'ring-2 ring-primary border-primary' : 'border-muted'}`}
+              className={`bg-white/95 backdrop-blur-sm rounded-xl border shadow-soft overflow-hidden flex flex-col transition-all hover:shadow-md ${highlightContactId === contact.id ? 'ring-2 ring-brand-primary border-brand-primary' : 'border-brand-cream-dark'}`}
             >
-              <div className="p-5 flex gap-4 items-start border-b border-muted">
-                <Avatar className="w-14 h-14 border border-border shadow-sm">
+              <div className="p-5 flex gap-4 items-start border-b border-brand-cream-dark">
+                <Avatar className="w-14 h-14 border border-brand-cream-dark shadow-sm">
                   <AvatarImage src={getAvatarUrl(contact)} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-serif">
+                  <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-serif">
                     {contact.push_name ? (
                       contact.push_name.charAt(0).toUpperCase()
                     ) : (
@@ -156,32 +156,32 @@ export default function CRM() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base truncate text-foreground flex items-center gap-2">
+                  <h3 className="font-semibold text-base truncate text-brand-deep flex items-center gap-2">
                     {contact.push_name || contact.phone || 'Sem Nome'}
                     {contact.is_business && <Briefcase className="w-3.5 h-3.5 text-blue-500" />}
                   </h3>
-                  <div className="flex items-center text-sm text-muted-foreground mt-1">
+                  <div className="flex items-center text-sm text-brand-muted mt-1">
                     <Phone className="w-3.5 h-3.5 mr-1.5" />
                     {contact.phone || contact.jid.split('@')[0]}
                   </div>
                   {contact.business_category && (
-                    <span className="inline-block mt-2 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-muted rounded text-muted-foreground">
+                    <span className="inline-block mt-2 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-brand-cream rounded text-brand-muted">
                       {contact.business_category}
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="p-5 flex-1 flex flex-col gap-4 bg-muted/10">
+              <div className="p-5 flex-1 flex flex-col gap-4 bg-brand-cream/20">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <label className="text-xs font-semibold text-brand-muted uppercase tracking-wider">
                     Fase do Lead
                   </label>
                   <Select
                     value={contact.stage}
                     onValueChange={(val) => handleStageChange(contact.id, val)}
                   >
-                    <SelectTrigger className="h-9 text-sm bg-background border-muted shadow-sm">
+                    <SelectTrigger className="h-9 text-sm bg-white border-brand-sage shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -236,9 +236,9 @@ export default function CRM() {
                 )}
               </div>
 
-              <div className="p-3 border-t border-muted bg-card">
+              <div className="p-3 border-t border-brand-cream-dark bg-white">
                 <Button
-                  className="w-full bg-primary/5 hover:bg-primary/10 text-primary border border-primary/10 shadow-none"
+                  className="w-full border-brand-sage text-brand-secondary hover:bg-brand-primary hover:text-white"
                   variant="outline"
                   onClick={() =>
                     navigate(`/conversas?jid=${contact.jid}&instance=${contact.instance_name}`)

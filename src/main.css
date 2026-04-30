@@ -6,6 +6,17 @@
 
 @layer base {
   :root {
+    --brand-deep: #021007;
+    --brand-forest: #062413;
+    --brand-primary: #0f3b21;
+    --brand-secondary: #1a4a2b;
+    --brand-muted: #5a6b5a;
+    --brand-cream: #f7f3e8;
+    --brand-cream-dark: #e3e5d9;
+    --brand-sage: #c8ccbe;
+    --shadow-soft: 0 4px 20px -2px rgba(15, 59, 33, 0.05);
+    --shadow-glow: 0 0 15px rgba(15, 59, 33, 0.15);
+
     --background: 42 33% 94%;
     --foreground: 0 0% 10%;
     --card: 0 0% 100%;

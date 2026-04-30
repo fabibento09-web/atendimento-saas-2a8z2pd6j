@@ -95,14 +95,14 @@ export default function Categorias() {
     <div className="space-y-8 animate-fade-in-up">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-primary">Categorias e Tags</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-3xl font-serif font-bold text-brand-primary">Categorias e Tags</h1>
+          <p className="text-brand-muted mt-1">
             Organize suas conversas e crie filtros personalizados.
           </p>
         </div>
         <Button
           onClick={() => setIsAdding(true)}
-          className="shrink-0 shadow-sm hover:shadow-md transition-shadow bg-primary text-primary-foreground"
+          className="shrink-0 shadow-sm hover:shadow-md transition-shadow bg-brand-primary text-white"
         >
           <Plus className="w-4 h-4 mr-2" /> Nova Tag
         </Button>
@@ -110,9 +110,9 @@ export default function Categorias() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         <div className="lg:col-span-1 space-y-4">
-          <Card className="border-muted shadow-sm bg-card">
-            <CardHeader className="pb-3 border-b bg-muted/20">
-              <CardTitle className="font-serif text-lg flex items-center gap-2 text-primary">
+          <Card>
+            <CardHeader className="pb-3 border-b border-brand-cream-dark bg-brand-cream/30">
+              <CardTitle className="font-serif text-lg flex items-center gap-2 text-brand-primary">
                 <TagIcon className="w-4 h-4" /> Uso das Tags
               </CardTitle>
               <CardDescription>Conversas por categoria</CardDescription>
@@ -123,20 +123,20 @@ export default function Categorias() {
                 return (
                   <div
                     key={tag.id}
-                    className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors group"
+                    className="flex items-center justify-between p-2 rounded-md hover:bg-brand-cream/50 transition-colors group"
                   >
                     <div className="flex items-center gap-3">
                       <div
                         className="w-3.5 h-3.5 rounded-full shadow-sm border border-black/10 shrink-0"
                         style={{ backgroundColor: tag.color }}
                       />
-                      <span className="text-sm font-medium text-foreground truncate max-w-[120px]">
+                      <span className="text-sm font-medium text-brand-deep truncate max-w-[120px]">
                         {tag.name}
                       </span>
                     </div>
                     <Badge
                       variant="secondary"
-                      className="bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors shadow-sm"
+                      className="bg-brand-cream text-brand-muted group-hover:bg-brand-primary group-hover:text-white transition-colors shadow-sm"
                     >
                       {count}
                     </Badge>
@@ -144,9 +144,7 @@ export default function Categorias() {
                 )
               })}
               {tags.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhuma tag cadastrada.
-                </p>
+                <p className="text-sm text-brand-muted text-center py-4">Nenhuma tag cadastrada.</p>
               )}
             </CardContent>
           </Card>
@@ -154,12 +152,12 @@ export default function Categorias() {
 
         <div className="lg:col-span-3 space-y-6">
           {isAdding && (
-            <Card className="border-primary shadow-lg animate-slide-down overflow-hidden">
-              <div className="h-1.5 w-full bg-primary" />
-              <CardContent className="p-5 sm:p-6 bg-card">
+            <Card className="border-brand-primary shadow-lg animate-slide-down overflow-hidden">
+              <div className="h-1.5 w-full bg-brand-primary" />
+              <CardContent className="p-5 sm:p-6">
                 <div className="flex flex-col xl:flex-row gap-5 items-end">
                   <div className="space-y-2 flex-1 w-full">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-brand-muted">
                       Nome da Tag
                     </Label>
                     <Input
@@ -167,14 +165,13 @@ export default function Categorias() {
                       onChange={(e) => setNewTagName(e.target.value)}
                       placeholder="Ex: Financeiro, Urgente..."
                       autoFocus
-                      className="bg-background shadow-sm border-muted focus-visible:ring-primary"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-brand-muted">
                       Cor de Destaque
                     </Label>
-                    <div className="flex gap-2 p-1.5 bg-background rounded-md border border-muted shadow-sm">
+                    <div className="flex gap-2 p-1.5 bg-white rounded-md border border-brand-sage shadow-sm">
                       {colors.map((c) => (
                         <button
                           key={c}
@@ -182,7 +179,7 @@ export default function Categorias() {
                           className={cn(
                             'w-8 h-8 rounded-full transition-all focus:outline-none shadow-sm border border-black/10',
                             newTagColor === c
-                              ? 'ring-2 ring-offset-2 ring-primary scale-110'
+                              ? 'ring-2 ring-offset-2 ring-brand-primary scale-110'
                               : 'hover:scale-110 opacity-80 hover:opacity-100',
                           )}
                           style={{ backgroundColor: c }}
@@ -194,13 +191,13 @@ export default function Categorias() {
                     <Button
                       variant="outline"
                       onClick={() => setIsAdding(false)}
-                      className="flex-1 xl:flex-none border-muted bg-background hover:bg-muted"
+                      className="flex-1 xl:flex-none border-brand-sage bg-white hover:bg-brand-cream"
                     >
                       Cancelar
                     </Button>
                     <Button
                       onClick={handleAdd}
-                      className="flex-1 xl:flex-none shadow-sm bg-primary text-primary-foreground hover:bg-primary/90"
+                      className="flex-1 xl:flex-none shadow-sm bg-brand-primary text-white hover:bg-brand-secondary"
                     >
                       Salvar Tag
                     </Button>
@@ -212,10 +209,7 @@ export default function Categorias() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
             {tags.map((tag) => (
-              <Card
-                key={tag.id}
-                className="hover:shadow-md transition-all group overflow-hidden border-muted bg-card"
-              >
+              <Card key={tag.id} className="hover:shadow-md transition-all group overflow-hidden">
                 <div
                   className="h-2 w-full transition-all duration-300 group-hover:h-3"
                   style={{ backgroundColor: tag.color }}
@@ -233,13 +227,13 @@ export default function Categorias() {
                         <Input
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
-                          className="h-8 py-1 px-2 text-sm bg-background border-primary"
+                          className="h-8 py-1 px-2 text-sm"
                           autoFocus
                           onKeyDown={(e) => e.key === 'Enter' && saveEdit(tag.id)}
                         />
                       ) : (
                         <span
-                          className="font-semibold text-foreground text-base truncate"
+                          className="font-semibold text-brand-deep text-base truncate"
                           title={tag.name}
                         >
                           {tag.name}
@@ -253,7 +247,7 @@ export default function Categorias() {
                             variant="ghost"
                             size="icon"
                             onClick={() => saveEdit(tag.id)}
-                            className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                            className="h-8 w-8 text-brand-primary hover:bg-brand-primary/10"
                           >
                             <Save className="w-4 h-4" />
                           </Button>
@@ -261,7 +255,7 @@ export default function Categorias() {
                             variant="ghost"
                             size="icon"
                             onClick={() => setEditingId(null)}
-                            className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                            className="h-8 w-8 text-brand-muted hover:bg-brand-cream"
                           >
                             <X className="w-4 h-4" />
                           </Button>
@@ -272,7 +266,7 @@ export default function Categorias() {
                             variant="ghost"
                             size="icon"
                             onClick={() => startEdit(tag)}
-                            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            className="h-8 w-8 text-brand-muted hover:text-brand-primary hover:bg-brand-primary/10"
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -280,7 +274,7 @@ export default function Categorias() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDelete(tag.id)}
-                            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            className="h-8 w-8 text-brand-muted hover:bg-red-50 hover:text-red-600"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -292,11 +286,11 @@ export default function Categorias() {
               </Card>
             ))}
             {tags.length === 0 && !isAdding && (
-              <div className="col-span-full py-12 text-center text-muted-foreground flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <TagIcon className="w-8 h-8 text-primary" />
+              <div className="col-span-full py-12 text-center text-brand-muted flex flex-col items-center">
+                <div className="w-16 h-16 rounded-full bg-brand-primary/10 flex items-center justify-center mb-4">
+                  <TagIcon className="w-8 h-8 text-brand-primary" />
                 </div>
-                <p className="font-serif text-lg text-primary">Nenhuma categoria criada</p>
+                <p className="font-serif text-lg text-brand-primary">Nenhuma categoria criada</p>
                 <p className="text-sm max-w-sm mt-1">
                   Crie tags para organizar suas conversas do WhatsApp de forma eficiente.
                 </p>

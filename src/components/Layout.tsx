@@ -1,108 +1,142 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom'
-import { MessageSquare, LayoutDashboard, Tags, Bell, Search, LogOut, Users } from 'lucide-react'
+import { MessageSquare, Bell, Search, LogOut, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarHeader,
-  SidebarFooter,
-  SidebarInset,
-  SidebarTrigger,
-} from '@/components/ui/sidebar'
-import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/hooks/use-auth'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
-function AppSidebar() {
+function TopNav() {
   const location = useLocation()
   const { user, signOut } = useAuth()
 
+  const navLinks = [
+    { name: 'Início', path: '/home' },
+    { name: 'Conversas', path: '/conversas' },
+    { name: 'CRM', path: '/crm' },
+    { name: 'Categorias', path: '/categorias' },
+  ]
+
   return (
-    <Sidebar>
-      <SidebarHeader className="border-b p-4 bg-sidebar">
-        <div className="flex items-center gap-2 text-primary">
-          <MessageSquare className="w-6 h-6" />
-          <span className="font-serif text-xl font-bold tracking-tight">AtendeSaaS</span>
+    <header className="sticky top-0 z-50 w-full h-14 md:h-16 bg-white/80 backdrop-blur-md border-b border-brand-cream-dark shadow-sm">
+      <div className="flex items-center justify-between px-4 md:px-6 h-full">
+        <div className="flex items-center gap-6">
+          {/* Mobile Menu */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden text-brand-primary">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="bg-brand-cream border-brand-cream-dark">
+              <SheetHeader>
+                <SheetTitle className="font-serif font-bold text-xl text-brand-primary flex items-center gap-2">
+                  <MessageSquare className="h-6 w-6" />
+                  Skip
+                </SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-4 mt-8">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className={cn(
+                      'text-lg font-sans font-medium transition-colors',
+                      location.pathname.startsWith(link.path)
+                        ? 'text-brand-primary font-bold'
+                        : 'text-brand-muted hover:text-brand-primary',
+                    )}
+                  >
+                    {link.name}
+                  </Link>
+                ))}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* Logo */}
+          <Link to="/home" className="flex items-center gap-2">
+            <MessageSquare className="h-6 w-6 text-brand-primary" />
+            <span className="font-serif font-bold text-xl text-brand-primary tracking-tight">
+              Skip
+            </span>
+          </Link>
+
+          {/* Desktop Nav */}
+          <nav className="hidden md:flex items-center gap-6 ml-6">
+            {navLinks.map((link) => {
+              const isActive = location.pathname.startsWith(link.path)
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={cn(
+                    'relative font-sans font-medium text-sm transition-colors py-2',
+                    isActive ? 'text-brand-primary' : 'text-brand-muted hover:text-brand-primary',
+                    'after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:bg-brand-primary after:transition-transform after:duration-300',
+                    isActive ? 'after:scale-x-100' : 'after:scale-x-0 hover:after:scale-x-100',
+                  )}
+                >
+                  {link.name}
+                </Link>
+              )
+            })}
+          </nav>
         </div>
-      </SidebarHeader>
-      <SidebarContent className="bg-sidebar">
-        <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={location.pathname === '/home'}
-                tooltip="Dashboard"
-              >
-                <Link to="/home">
-                  <LayoutDashboard />
-                  <span>Dashboard</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={location.pathname === '/conversas'}
-                tooltip="Conversas"
-              >
-                <Link to="/conversas">
-                  <MessageSquare />
-                  <span>Conversas</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                isActive={location.pathname === '/categorias'}
-                tooltip="Categorias"
-              >
-                <Link to="/categorias">
-                  <Tags />
-                  <span>Categorias</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === '/crm'} tooltip="CRM">
-                <Link to="/crm">
-                  <Users />
-                  <span>CRM</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter className="border-t p-4 bg-sidebar">
-        <div className="flex items-center gap-3">
-          <Avatar className="w-9 h-9 border border-primary/20 shadow-sm">
-            {user?.avatar && <AvatarImage src={user.avatar} />}
-            <AvatarFallback className="bg-primary/10 text-primary font-serif font-bold">
-              {user?.name?.substring(0, 2).toUpperCase() ||
-                user?.email?.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col flex-1 min-w-0">
-            <span className="text-sm font-medium truncate">{user?.name || user?.email}</span>
-            <span className="text-xs text-muted-foreground">Logado</span>
-          </div>
-          <button
-            onClick={signOut}
-            className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-muted transition-colors"
-            title="Sair"
+
+        <div className="flex items-center gap-2 md:gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-brand-muted hover:text-brand-primary hidden sm:flex"
           >
-            <LogOut className="w-4 h-4" />
-          </button>
+            <Search className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="text-brand-muted hover:text-brand-primary">
+            <Bell className="h-5 w-5" />
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Avatar className="h-9 w-9 border border-brand-cream-dark shadow-sm">
+                  {user?.avatar && <AvatarImage src={user.avatar} />}
+                  <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-serif font-bold">
+                    {user?.name?.substring(0, 2).toUpperCase() ||
+                      user?.email?.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 bg-white border-brand-cream-dark">
+              <div className="flex items-center justify-start gap-2 p-2">
+                <div className="flex flex-col space-y-1 leading-none">
+                  {user?.name && (
+                    <p className="font-medium text-sm text-brand-primary">{user.name}</p>
+                  )}
+                  {user?.email && (
+                    <p className="w-[200px] truncate text-xs text-brand-muted">{user.email}</p>
+                  )}
+                </div>
+              </div>
+              <DropdownMenuItem
+                onClick={signOut}
+                className="text-red-600 cursor-pointer focus:bg-red-50 focus:text-red-600"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </SidebarFooter>
-    </Sidebar>
+      </div>
+    </header>
   )
 }
 
@@ -113,8 +147,8 @@ export function Layout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin text-primary">
+      <div className="min-h-screen bg-brand-cream flex items-center justify-center">
+        <div className="animate-spin text-brand-primary">
           <MessageSquare className="w-8 h-8" />
         </div>
       </div>
@@ -130,39 +164,16 @@ export function Layout() {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset className="bg-background flex flex-col h-screen overflow-hidden">
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-card px-4 shadow-sm z-10">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex-1 flex items-center justify-between">
-            <h1 className="text-lg font-serif font-semibold text-primary ml-2 capitalize">
-              {location.pathname.substring(1)}
-            </h1>
-            <div className="flex items-center gap-4">
-              <div className="relative hidden md:block">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Buscar..."
-                  className="w-64 pl-8 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary/50"
-                />
-              </div>
-              <button className="text-muted-foreground hover:text-foreground transition-colors">
-                <Bell className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        </header>
-        <main
-          className={cn(
-            'flex-1 overflow-auto bg-noise bg-opacity-10 relative',
-            location.pathname.startsWith('/conversas') ? 'p-0' : 'p-4 md:p-6',
-          )}
-        >
-          <Outlet />
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="h-screen bg-brand-cream flex flex-col font-sans overflow-hidden">
+      <TopNav />
+      <main
+        className={cn(
+          'flex-1 overflow-auto bg-noise bg-opacity-10 relative pt-0',
+          location.pathname.startsWith('/conversas') ? 'p-0' : 'p-4 md:p-6',
+        )}
+      >
+        <Outlet />
+      </main>
+    </div>
   )
 }

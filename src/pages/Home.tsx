@@ -61,42 +61,38 @@ export default function Home() {
   return (
     <div className="space-y-8 animate-fade-in-up">
       <div>
-        <h1 className="text-3xl font-serif font-bold text-foreground">Visão Geral</h1>
-        <p className="text-muted-foreground mt-1">
+        <h1 className="text-3xl font-serif font-bold text-brand-primary">Visão Geral</h1>
+        <p className="text-brand-muted mt-1">
           Acompanhe o desempenho do seu atendimento em tempo real.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="hover:shadow-md transition-shadow border-muted">
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Conversas Ativas
-            </CardTitle>
-            <div className="p-2 bg-primary/10 rounded-full">
-              <MessageSquare className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm font-medium text-brand-muted">Conversas Ativas</CardTitle>
+            <div className="p-2 bg-brand-primary/10 rounded-full">
+              <MessageSquare className="h-4 w-4 text-brand-primary" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-serif font-bold text-foreground">{activeChats}</div>
-            <p className="text-xs text-muted-foreground flex items-center mt-2 font-medium">
+            <div className="text-4xl font-serif font-bold text-brand-deep">{activeChats}</div>
+            <p className="text-xs text-brand-muted flex items-center mt-2 font-medium">
               Total de conversas na base
             </p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-md transition-shadow border-muted">
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Não Respondidas
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-brand-muted">Não Respondidas</CardTitle>
             <div className="p-2 bg-red-500/10 rounded-full">
               <AlertCircle className="h-4 w-4 text-red-500" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-serif font-bold text-foreground">{unanswered}</div>
-            <p className="text-xs text-muted-foreground flex items-center mt-2 font-medium">
+            <div className="text-4xl font-serif font-bold text-brand-deep">{unanswered}</div>
+            <p className="text-xs text-brand-muted flex items-center mt-2 font-medium">
               Aguardando sua resposta
             </p>
           </CardContent>
@@ -104,9 +100,9 @@ export default function Home() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-muted shadow-sm flex flex-col">
-          <CardHeader className="border-b bg-muted/20">
-            <CardTitle className="font-serif">Conversas Recentes</CardTitle>
+        <Card className="flex flex-col">
+          <CardHeader className="border-b border-brand-cream-dark bg-brand-cream/30">
+            <CardTitle className="font-serif text-brand-primary">Conversas Recentes</CardTitle>
           </CardHeader>
           <CardContent className="p-0 flex-1">
             {recentChats.length === 0 ? (
@@ -114,21 +110,21 @@ export default function Home() {
                 Nenhuma conversa recente encontrada.
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-brand-cream-dark">
                 {recentChats.map((chat) => (
                   <div
                     key={chat.id}
-                    className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+                    className="flex items-center justify-between p-4 hover:bg-brand-cream/50 transition-colors"
                   >
                     <div className="flex items-center gap-4 overflow-hidden">
-                      <Avatar className="w-10 h-10 shadow-sm border border-muted flex-shrink-0">
+                      <Avatar className="w-10 h-10 shadow-sm border border-brand-cream-dark flex-shrink-0">
                         <AvatarImage
                           src={
                             chat.avatar_url ||
                             (chat.avatar ? pb.files.getUrl(chat, chat.avatar) : '')
                           }
                         />
-                        <AvatarFallback className="bg-primary/10 text-primary font-bold font-serif">
+                        <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-bold font-serif">
                           {chat.contact_name?.charAt(0)?.toUpperCase() ||
                             chat.remote_jid?.charAt(0)?.toUpperCase() ||
                             'U'}
@@ -136,23 +132,23 @@ export default function Home() {
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-sm text-foreground truncate">
+                          <p className="font-medium text-sm text-brand-deep truncate">
                             {chat.contact_name || chat.remote_jid || 'Desconhecido'}
                           </p>
                           {chat.unread_count > 0 && (
-                            <span className="w-2 h-2 rounded-full bg-primary inline-block animate-pulse flex-shrink-0" />
+                            <span className="w-2 h-2 rounded-full bg-brand-primary inline-block animate-pulse flex-shrink-0" />
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        <p className="text-xs text-brand-muted truncate mt-0.5">
                           {chat.last_message || 'Nenhuma mensagem...'}
                         </p>
                       </div>
                     </div>
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
                       asChild
-                      className="hover:bg-primary hover:text-primary-foreground ml-4 flex-shrink-0"
+                      className="ml-4 flex-shrink-0 border-brand-sage text-brand-secondary hover:bg-brand-primary hover:text-white"
                     >
                       <Link
                         to={`/conversas?jid=${encodeURIComponent(chat.remote_jid)}&instance=${encodeURIComponent(chat.instance_name)}`}
@@ -167,9 +163,9 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        <Card className="border-muted shadow-sm flex flex-col">
-          <CardHeader className="border-b bg-muted/20">
-            <CardTitle className="font-serif">Categorias Populares</CardTitle>
+        <Card className="flex flex-col">
+          <CardHeader className="border-b border-brand-cream-dark bg-brand-cream/30">
+            <CardTitle className="font-serif text-brand-primary">Categorias Populares</CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-4 flex-1">
             {sortedCategories.length === 0 ? (
@@ -193,11 +189,11 @@ export default function Home() {
                           {tag.name}
                         </span>
                       </div>
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-xs font-medium text-brand-muted">
                         {count} ({percent}%)
                       </span>
                     </div>
-                    <div className="h-1.5 w-full bg-muted overflow-hidden rounded-full">
+                    <div className="h-1.5 w-full bg-brand-cream-dark overflow-hidden rounded-full">
                       <div
                         className="h-full rounded-full transition-all duration-1000 ease-out"
                         style={{ width: `${percent}%`, backgroundColor: tag.color || '#ccc' }}
