@@ -8,7 +8,7 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
     return e.json(200, { status: 'ignored' })
   }
 
-  const processIncomingMessage = require(`${__hooks}/lib/process_message.js`)
+  const processIncomingMessage = require(`${__hooks}/lib/_process_message.js`)
 
   try {
     if (event === 'connection.update') {
