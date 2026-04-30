@@ -18,6 +18,7 @@ routerAdd(
 
     const baseUrl = evolutionUrl.endsWith('/') ? evolutionUrl.slice(0, -1) : evolutionUrl
     const webhookUrl =
+      $secrets.get('PB_WEBHOOK_URL') ||
       'https://atendimento-saas-be0f2.shrd00.internal.goskip.dev/backend/v1/whatsapp/webhook'
 
     const payload = {
@@ -97,6 +98,80 @@ routerAdd(
           } else {
             $app.logger().error('Evolution API connect error', 'status', connRes.statusCode)
             return e.internalServerError('Failed to connect to existing instance')
+          }
+
+          // Auto-repair webhook on reconnection
+          try {
+            const webhookPayload = {
+              webhook: {
+                enabled: true,
+                url: webhookUrl,
+                byEvents: false,
+                base64: true,
+                events: [
+                  'QRCODE_UPDATED',
+                  'CONNECTION_UPDATE',
+                  'MESSAGES_UPSERT',
+                  'MESSAGES_SET',
+                  'MESSAGES_UPDATE',
+                  'MESSAGES_DELETE',
+                  'CONTACTS_UPSERT',
+                  'CONTACTS_UPDATE',
+                  'CHATS_UPSERT',
+                  'CHATS_UPDATE',
+                  'PRESENCE_UPDATE',
+                  'GROUPS_UPSERT',
+                  'GROUP_UPDATE',
+                ],
+              },
+            }
+
+            const webhookRes = $http.send({
+              url: baseUrl + '/webhook/set/' + instanceName,
+              method: 'POST',
+              headers: {
+                apikey: evolutionKey,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(webhookPayload),
+              timeout: 15,
+            })
+
+            if (webhookRes.statusCode === 200 || webhookRes.statusCode === 201) {
+              $app
+                .logger()
+                .info(
+                  'Successfully set webhook for existing instance',
+                  'instance_name',
+                  instanceName,
+                  'statusCode',
+                  webhookRes.statusCode,
+                  'response',
+                  JSON.stringify(webhookRes.json || {}),
+                )
+            } else {
+              $app
+                .logger()
+                .error(
+                  'Failed to set webhook for existing instance',
+                  'instance_name',
+                  instanceName,
+                  'statusCode',
+                  webhookRes.statusCode,
+                  'response',
+                  JSON.stringify(webhookRes.json || {}),
+                )
+            }
+          } catch (webhookErr) {
+            $app
+              .logger()
+              .error(
+                'Transport error setting webhook for existing instance',
+                'instance_name',
+                instanceName,
+                'error',
+                webhookErr.message,
+              )
           }
         } catch (connErr) {
           return e.internalServerError('Failed to connect to existing instance: ' + connErr.message)
