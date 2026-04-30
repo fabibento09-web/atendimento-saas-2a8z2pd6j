@@ -3,15 +3,34 @@ module.exports = function processIncomingMessage(instanceName, data) {
     const key = data.key || {}
     const messageId = key.id || ''
 
+    let record = null
     if (messageId) {
       try {
-        $app.findFirstRecordByData('whatsapp_messages', 'message_id', messageId)
-        return { status: 'ignored', reason: 'duplicate' }
-      } catch (_) {}
+        record = $app.findFirstRecordByData('whatsapp_messages', 'message_id', messageId)
+        const hasMedia = !!record.getString('media_file')
+
+        let hasIncomingB64 = !!data.base64
+        if (!hasIncomingB64 && data.message) {
+          const msgStr = JSON.stringify(data.message)
+          if (msgStr.includes('"base64":')) {
+            hasIncomingB64 = true
+          }
+        }
+
+        if (hasMedia || !hasIncomingB64) {
+          return { status: 'ignored', reason: 'duplicate' }
+        }
+      } catch (_) {
+        record = null
+      }
     }
 
-    const col = $app.findCollectionByNameOrId('whatsapp_messages')
-    const record = new Record(col)
+    const isEnrichment = !!(record && record.id)
+
+    if (!record) {
+      const col = $app.findCollectionByNameOrId('whatsapp_messages')
+      record = new Record(col)
+    }
 
     record.set('instance_name', instanceName)
     const remoteJid = key.remoteJid || ''
@@ -60,6 +79,10 @@ module.exports = function processIncomingMessage(instanceName, data) {
       'locationMessage',
       'contactMessage',
       'contactsArrayMessage',
+      'pollCreationMessage',
+      'templateMessage',
+      'liveLocationMessage',
+      'groupInviteMessage',
     ]
 
     const msgKeys = Object.keys(messageData)
@@ -114,6 +137,14 @@ module.exports = function processIncomingMessage(instanceName, data) {
     } else if (messageData.stickerMessage) {
       messageType = 'sticker'
       mediaMimetype = messageData.stickerMessage.mimetype
+    } else if (
+      messageData.pollCreationMessage ||
+      messageData.templateMessage ||
+      messageData.liveLocationMessage ||
+      messageData.groupInviteMessage
+    ) {
+      messageType = 'unsupported'
+      content = '[mensagem não suportada]'
     } else {
       $app.logger().warn('Unknown message type', 'keys', Object.keys(messageData).join(','))
       return { status: 'ignored', reason: 'unknown_type' }
@@ -290,11 +321,13 @@ module.exports = function processIncomingMessage(instanceName, data) {
           finalContent || (messageType !== 'text' ? `[${messageType}]` : ''),
         )
 
-        if (!key.fromMe) {
-          const currentUnread = convRecord.getInt('unread_count') || 0
-          convRecord.set('unread_count', currentUnread + 1)
-        } else {
-          convRecord.set('unread_count', 0)
+        if (!isEnrichment) {
+          if (!key.fromMe) {
+            const currentUnread = convRecord.getInt('unread_count') || 0
+            convRecord.set('unread_count', currentUnread + 1)
+          } else {
+            convRecord.set('unread_count', 0)
+          }
         }
 
         const apiUrl = $secrets.get('EVOLUTION_API_URL')
