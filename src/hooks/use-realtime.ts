@@ -16,6 +16,7 @@ export function useRealtime(
   enabled: boolean = true,
 ) {
   const { user } = useAuth()
+  const userId = user?.id
   const callbackRef = useRef(callback)
   callbackRef.current = callback
 
@@ -41,7 +42,7 @@ export function useRealtime(
         unsubscribeFn().catch(() => {})
       }
     }
-  }, [collectionName, enabled, user])
+  }, [collectionName, enabled, userId])
 }
 
 export default useRealtime
