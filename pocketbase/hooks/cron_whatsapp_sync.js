@@ -23,7 +23,7 @@ cronAdd('whatsapp_gap_fill', '*/15 * * * *', () => {
       return
     }
 
-    const processIncomingMessage = require(`${__dirname}/_lib/process_message.js`)
+    const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
 
     for (const instance of instances) {
       const instanceName = instance.getString('instance_name')
@@ -71,8 +71,8 @@ cronAdd('whatsapp_gap_fill', '*/15 * * * *', () => {
           const latestMsg = $app.findFirstRecordByFilter(
             'whatsapp_messages',
             'instance_name = {:instanceName} && remote_jid = {:remoteJid}',
-            '-timestamp',
             { instanceName, remoteJid },
+            '-timestamp',
           )
           maxTimestamp = latestMsg.getInt('timestamp')
         } catch (_) {}
