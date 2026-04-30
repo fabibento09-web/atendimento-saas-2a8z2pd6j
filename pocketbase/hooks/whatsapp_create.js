@@ -17,8 +17,7 @@ routerAdd(
     }
 
     const baseUrl = evolutionUrl.endsWith('/') ? evolutionUrl.slice(0, -1) : evolutionUrl
-    const webhookUrl =
-      'https://atendimento-saas-be0f2.shrd00.internal.goskip.dev/backend/v1/whatsapp/webhook'
+    const webhookUrl = 'https://atendimento-saas-be0f2.goskip.app/backend/v1/whatsapp/webhook'
 
     const payload = {
       instanceName: instanceName,
