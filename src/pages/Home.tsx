@@ -121,7 +121,7 @@ export default function Home() {
                         <AvatarImage
                           src={
                             chat.avatar_url ||
-                            (chat.avatar ? pb.files.getUrl(chat, chat.avatar) : '')
+                            (chat.avatar ? pb.files.getURL(chat, chat.avatar) : '')
                           }
                         />
                         <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-bold font-serif">
