@@ -1,41 +1,52 @@
 import pb from '@/lib/pocketbase/client'
 import type { RecordSubscription } from 'pocketbase'
 
+// Global promise queue: serializes subscribes across the app so multiple
+// useRealtime hooks don't race against each other before the SSE connection
+// is established. Each new subscribe waits for the previous to settle.
+let subscribeQueue: Promise<unknown> = Promise.resolve()
+
 export async function safeSubscribe<T = any>(
   collection: string,
   target: string,
   callback: (data: RecordSubscription<T>) => void,
-  retryCount = 0,
 ): Promise<(() => Promise<void>) | undefined> {
   if (!pb.authStore.isValid) {
-    console.warn(`Subscription to ${collection} aborted: Not authenticated.`)
     return undefined
   }
 
+  const next = subscribeQueue
+    .catch(() => undefined)
+    .then(() => doSubscribe(collection, target, callback, 0))
+  subscribeQueue = next
+  return next
+}
+
+async function doSubscribe<T>(
+  collection: string,
+  target: string,
+  callback: (data: RecordSubscription<T>) => void,
+  retryCount: number,
+): Promise<(() => Promise<void>) | undefined> {
+  if (!pb.authStore.isValid) return undefined
+
   try {
-    const unsub = await pb.collection(collection).subscribe<T>(target, callback)
-    return unsub
+    return await pb.collection(collection).subscribe<T>(target, callback)
   } catch (error: any) {
     const errMessage = error?.message || String(error)
     const isClientIdError =
       errMessage.toLowerCase().includes('missing or invalid client id') ||
       errMessage.toLowerCase().includes('no client associated with connection id')
 
-    if (isClientIdError) {
-      console.warn('Realtime client ID error detected. Resetting global realtime connection...')
-      await pb.realtime.unsubscribe().catch(() => {})
-    }
-
-    if (retryCount < 3) {
-      const delay = Math.pow(2, retryCount) * 1000 // 1s, 2s, 4s
-      console.log(
-        `Retrying subscription for ${collection} in ${delay}ms (attempt ${retryCount + 1}/3)...`,
-      )
-      await new Promise((resolve) => setTimeout(resolve, delay))
-      return safeSubscribe(collection, target, callback, retryCount + 1)
-    } else {
-      console.error(`Failed to subscribe to ${collection} after 3 retries.`, error)
+    if (retryCount >= 4) {
+      console.error(`safeSubscribe: gave up on ${collection} after ${retryCount} retries`, error)
       return undefined
     }
+
+    // Client id mismatches resolve fast once SSE stabilizes — short delay.
+    // Other errors back off normally.
+    const delay = isClientIdError ? 250 : Math.pow(2, retryCount) * 500
+    await new Promise((resolve) => setTimeout(resolve, delay))
+    return doSubscribe(collection, target, callback, retryCount + 1)
   }
 }
