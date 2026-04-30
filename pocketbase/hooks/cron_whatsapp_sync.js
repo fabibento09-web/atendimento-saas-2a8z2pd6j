@@ -1,4 +1,4 @@
-cronAdd('whatsapp_gap_fill', '*/15 * * * *', () => {
+cronAdd('whatsapp_gap_fill', '*/2 * * * *', () => {
   const apiUrl = $secrets.get('EVOLUTION_API_URL')
   const apiKey = $secrets.get('EVOLUTION_API_KEY')
   if (!apiUrl || !apiKey) return
@@ -91,9 +91,9 @@ cronAdd('whatsapp_gap_fill', '*/15 * * * *', () => {
             headers: { apikey: apiKey, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               where: {
-                remoteJid: remoteJid,
-                messageTimestamp: { gte: maxTimestamp },
+                key: { remoteJid: remoteJid },
               },
+              limit: 50,
             }),
             timeout: 30,
           })
@@ -129,7 +129,7 @@ cronAdd('whatsapp_gap_fill', '*/15 * * * *', () => {
           let syncedCount = 0
           for (const msg of messages) {
             const msgTs = msg.messageTimestamp || 0
-            if (msgTs >= maxTimestamp) {
+            if (msgTs > maxTimestamp) {
               const res = processIncomingMessage(instanceName, msg)
               if (res && res.status === 'success') {
                 syncedCount++
