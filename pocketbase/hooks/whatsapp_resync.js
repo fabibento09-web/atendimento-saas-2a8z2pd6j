@@ -6,27 +6,29 @@ routerAdd(
     const instanceName = body.instanceName
 
     if (!instanceName) {
-      throw new BadRequestError('instanceName is required')
+      return e.badRequestError('instanceName is required')
     }
 
-    const userId = e.auth?.id
+    const userId = e.auth && e.auth.id
     if (!userId) {
-      throw new UnauthorizedError('Authentication required')
+      return e.unauthorizedError('Authentication required')
     }
 
-    const instance = $app.findFirstRecordByFilter(
-      'whatsapp_instances',
-      'instance_name = {:instanceName} && user_id = {:userId}',
-      { instanceName, userId },
-    )
-    if (!instance) {
-      throw new ForbiddenError('Instance not found or not owned by user')
+    let instance
+    try {
+      instance = $app.findFirstRecordByFilter(
+        'whatsapp_instances',
+        'instance_name = {:instanceName} && user_id = {:userId}',
+        { instanceName, userId },
+      )
+    } catch (_) {
+      return e.forbiddenError('Instance not found or not owned by user')
     }
 
     const evolutionUrl = $secrets.get('EVOLUTION_API_URL')
     const evolutionKey = $secrets.get('EVOLUTION_API_KEY')
     if (!evolutionUrl || !evolutionKey) {
-      throw new InternalServerError('Evolution API configuration missing')
+      return e.internalServerError('Evolution API configuration missing')
     }
 
     const baseUrl = evolutionUrl.endsWith('/') ? evolutionUrl.slice(0, -1) : evolutionUrl
