@@ -131,6 +131,72 @@ routerAdd(
       $app.save(msg)
     }
 
+    // Sync Conversation
+    if (remoteJid && remoteJid !== 'status@broadcast') {
+      try {
+        const isGroup = remoteJid.includes('@g.us')
+        const chatType = isGroup ? 'group' : 'individual'
+        const userId = e.auth.id
+        let convRecord
+        try {
+          convRecord = $app.findFirstRecordByFilter(
+            'conversations',
+            'user_id = {:userId} && remote_jid = {:remoteJid} && instance_name = {:instanceName}',
+            { userId, remoteJid: remoteJid, instanceName },
+          )
+        } catch (_) {
+          const convCol = $app.findCollectionByNameOrId('conversations')
+          convRecord = new Record(convCol)
+          convRecord.set('user_id', userId)
+          convRecord.set('remote_jid', remoteJid)
+          convRecord.set('instance_name', instanceName)
+          convRecord.set('is_group', isGroup)
+          convRecord.set('type', chatType)
+          convRecord.set('contact_phone', remoteJid.split('@')[0])
+        }
+
+        convRecord.set('last_message', caption || `[${mediatype}]`)
+        convRecord.set('unread_count', 0)
+
+        const now = new Date()
+        const fetchedAtStr = convRecord.getString('picture_fetched_at')
+        let needsFetch = !convRecord.getString('avatar')
+        if (fetchedAtStr && !needsFetch) {
+          const fetchedAt = new Date(fetchedAtStr)
+          if (now.getTime() - fetchedAt.getTime() > 24 * 60 * 60 * 1000) {
+            needsFetch = true
+          }
+        }
+
+        if (needsFetch && evUrl && evKey) {
+          try {
+            const resAvatar = $http.send({
+              url: `${evUrl.replace(/\/+$/, '')}/chat/fetchProfilePictureUrl/${instanceName}`,
+              method: 'POST',
+              headers: { apikey: evKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ number: remoteJid }),
+              timeout: 10,
+            })
+            if (
+              resAvatar.statusCode === 200 &&
+              resAvatar.json &&
+              resAvatar.json.profilePictureUrl
+            ) {
+              const file = $filesystem.fileFromURL(resAvatar.json.profilePictureUrl)
+              convRecord.set('avatar', file)
+            }
+          } catch (err) {
+            $app.logger().warn('Failed to fetch/save avatar on send media', 'error', err.message)
+          }
+          convRecord.set('picture_fetched_at', new Date().toISOString())
+        }
+
+        $app.save(convRecord)
+      } catch (err) {
+        $app.logger().error('Failed to sync conversation on send media', 'error', err.message)
+      }
+    }
+
     return e.json(200, msg)
   },
   $apis.requireAuth(),

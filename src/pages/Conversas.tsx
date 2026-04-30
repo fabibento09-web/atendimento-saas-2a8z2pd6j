@@ -364,9 +364,10 @@ export default function Conversas() {
           avatar_url: avatarUrl,
           contact_name: meta?.contact_name || c.push_name || c.remote_jid,
           unread_count: meta?.unread_count || 0,
+          updated_at: meta?.updated ? new Date(meta.updated).getTime() : c.timestamp * 1000,
         }
       })
-      .sort((a, b) => b.timestamp - a.timestamp)
+      .sort((a, b) => b.updated_at - a.updated_at)
   }, [messages, conversationsMeta])
 
   useEffect(() => {
