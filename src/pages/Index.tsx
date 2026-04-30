@@ -23,24 +23,24 @@ function StepCard({ stepNum, currentStep, title, icon, children, description }: 
   return (
     <Card
       className={cn(
-        'transition-all duration-500 relative overflow-hidden border',
+        'transition-all duration-500 relative overflow-hidden border backdrop-blur-xl',
         isActive
-          ? 'border-2 border-[#2A4B3C] shadow-2xl scale-[1.03] z-10 bg-white'
+          ? 'border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.2)] scale-[1.03] z-10 bg-white/95'
           : isPast
-            ? 'border-[#C8CCBE] bg-[#E3E5D9] scale-100 opacity-90'
-            : 'border-transparent bg-black/5 scale-100 opacity-60',
+            ? 'border-white/40 bg-white/80 scale-100 opacity-95'
+            : 'border-white/20 bg-white/60 scale-100 opacity-80',
       )}
     >
       <CardHeader className="pb-4">
         <div className="flex items-center gap-3 mb-1">
           <div
             className={cn(
-              'w-8 h-8 rounded-full flex items-center justify-center transition-colors',
+              'w-8 h-8 rounded-full flex items-center justify-center transition-colors shadow-sm',
               isActive
-                ? 'bg-[#2A4B3C] text-white'
+                ? 'bg-[#0f3b21] text-white'
                 : isPast
-                  ? 'bg-[#8E9B89] text-white'
-                  : 'bg-black/10 text-black/40',
+                  ? 'bg-[#1a4a2b]/80 text-white'
+                  : 'bg-white/60 text-[#1a4a2b]/50',
             )}
           >
             {isPast ? <CheckCircle2 className="w-5 h-5" /> : icon}
@@ -48,13 +48,15 @@ function StepCard({ stepNum, currentStep, title, icon, children, description }: 
           <CardTitle
             className={cn(
               'font-serif text-xl',
-              isActive || isPast ? 'text-[#2A4B3C]' : 'text-black/50',
+              isActive || isPast ? 'text-[#0f3b21]' : 'text-[#0f3b21]/50',
             )}
           >
             {title}
           </CardTitle>
         </div>
-        <CardDescription className={cn(isActive || isPast ? 'text-[#5A6B5A]' : 'text-black/40')}>
+        <CardDescription
+          className={cn(isActive || isPast ? 'text-[#1a4a2b]' : 'text-[#1a4a2b]/50')}
+        >
           {description}
         </CardDescription>
       </CardHeader>
@@ -62,6 +64,48 @@ function StepCard({ stepNum, currentStep, title, icon, children, description }: 
     </Card>
   )
 }
+
+const PlanetGraphic = () => (
+  <svg
+    viewBox="0 0 800 800"
+    className="w-full h-full opacity-40"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <defs>
+      <radialGradient id="globe-glow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#10b981" stopOpacity="0.15" />
+        <stop offset="100%" stopColor="#041209" stopOpacity="0" />
+      </radialGradient>
+    </defs>
+    <circle cx="400" cy="400" r="390" fill="url(#globe-glow)" />
+    <g stroke="currentColor" strokeWidth="1" fill="none" className="text-emerald-500/30">
+      <circle cx="400" cy="400" r="380" strokeWidth="2" className="text-emerald-400/50" />
+      <ellipse cx="400" cy="400" rx="380" ry="280" />
+      <ellipse cx="400" cy="400" rx="380" ry="180" />
+      <ellipse cx="400" cy="400" rx="380" ry="80" />
+      <line x1="20" y1="400" x2="780" y2="400" strokeWidth="1.5" />
+      <ellipse cx="400" cy="400" rx="280" ry="380" />
+      <ellipse cx="400" cy="400" rx="180" ry="380" />
+      <ellipse cx="400" cy="400" rx="80" ry="380" />
+      <line x1="400" y1="20" x2="400" y2="780" strokeWidth="1.5" />
+    </g>
+    <g fill="#34d399" className="opacity-80">
+      <circle cx="400" cy="20" r="3" />
+      <circle cx="400" cy="780" r="3" />
+      <circle cx="20" cy="400" r="3" />
+      <circle cx="780" cy="400" r="3" />
+      <circle cx="400" cy="400" r="5" fill="#10b981" />
+      <circle cx="220" cy="220" r="2" />
+      <circle cx="580" cy="220" r="2" />
+      <circle cx="220" cy="580" r="2" />
+      <circle cx="580" cy="580" r="2" />
+      <circle cx="320" cy="120" r="2" />
+      <circle cx="480" cy="120" r="2" />
+      <circle cx="320" cy="680" r="2" />
+      <circle cx="480" cy="680" r="2" />
+    </g>
+  </svg>
+)
 
 export default function Index() {
   const [step, setStep] = useState(1)
@@ -199,19 +243,31 @@ export default function Index() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#F4F3EA] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#2A4B3C]" />
+      <div className="min-h-screen bg-[#021007] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F3EA] flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-[#021007] via-[#062413] to-[#010804] flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        {/* Top Glow */}
+        <div className="absolute -top-[20%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-900/30 blur-[120px] rounded-full mix-blend-screen" />
+        {/* Center Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-600/10 blur-[150px] rounded-full mix-blend-screen" />
+        {/* Planet Graphic */}
+        <div className="absolute top-[30%] md:top-[40%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] md:w-[1200px] md:h-[1200px]">
+          <PlanetGraphic />
+        </div>
+      </div>
+
       <div className="mb-12 text-center space-y-4 relative z-10">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold text-[#2A4B3C] animate-fade-in-down">
+        <h1 className="text-4xl md:text-6xl font-serif font-bold text-white drop-shadow-lg animate-fade-in-down tracking-tight">
           AtendeSaaS
         </h1>
-        <p className="text-[#5A6B5A] max-w-lg mx-auto animate-fade-in-up">
+        <p className="text-emerald-50/80 max-w-lg mx-auto animate-fade-in-up text-lg font-medium">
           Configure sua plataforma em três passos simples e revolucione o atendimento da sua equipe.
         </p>
       </div>
@@ -261,7 +317,7 @@ export default function Index() {
             </div>
             <div className="space-y-3 pt-2">
               <Button
-                className="w-full bg-[#A1B09C] hover:bg-[#8E9B89] text-white shadow-none transition-colors"
+                className="w-full bg-[#0f3b21] hover:bg-[#1a4a2b] text-white shadow-md transition-colors"
                 onClick={handleAuth}
                 disabled={step !== 1 || loading}
               >
@@ -271,7 +327,7 @@ export default function Index() {
               {step === 1 && (
                 <Button
                   variant="ghost"
-                  className="w-full text-xs text-[#5A6B5A] hover:text-[#2A4B3C] hover:bg-black/5"
+                  className="w-full text-xs text-[#1a4a2b] hover:text-[#0f3b21] hover:bg-black/5"
                   onClick={() => setIsLogin(!isLogin)}
                   disabled={loading}
                 >
@@ -307,7 +363,7 @@ export default function Index() {
                   className="w-full h-full object-contain"
                 />
               ) : step === 2 && !apiError ? (
-                <Loader2 className="w-8 h-8 animate-spin text-[#A1B09C]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#0f3b21]" />
               ) : (
                 <QrCode className="w-16 h-16 text-black/10" />
               )}
@@ -343,7 +399,7 @@ export default function Index() {
                   {progress}%
                 </span>
               </div>
-              <Progress value={progress} className="h-2 bg-[#E3E5D9] [&>div]:bg-[#2A4B3C]" />
+              <Progress value={progress} className="h-2 bg-[#E3E5D9] [&>div]:bg-[#0f3b21]" />
             </div>
             <p
               className={cn(
