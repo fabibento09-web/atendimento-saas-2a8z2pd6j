@@ -22,10 +22,10 @@ cronAdd('whatsapp_manual_resync', '* * * * *', () => {
       return
     }
 
-    const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
+    const processIncomingMessage = require(`${__hooks}/lib/process_message.js`)
     let fetchMessagesPage = null
     try {
-      const evolutionClient = require(`${__hooks}/_lib/evolution_client.js`)
+      const evolutionClient = require(`${__hooks}/lib/evolution_client.js`)
       if (evolutionClient && evolutionClient.fetchMessagesPage) {
         fetchMessagesPage = evolutionClient.fetchMessagesPage
       }
@@ -247,7 +247,7 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
       return
     }
 
-    const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
+    const processIncomingMessage = require(`${__hooks}/lib/process_message.js`)
 
     for (const instance of instances) {
       const instanceName = instance.getString('instance_name')
