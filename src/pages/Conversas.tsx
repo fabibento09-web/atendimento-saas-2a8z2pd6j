@@ -246,38 +246,6 @@ export default function Conversas() {
     loadFnsRef.current = { loadMessages, loadConversationsMeta }
   })
 
-  useEffect(() => {
-    let focusTimeout: ReturnType<typeof setTimeout>
-    const handleFocus = () => {
-      clearTimeout(focusTimeout)
-      focusTimeout = setTimeout(() => {
-        loadFnsRef.current.loadMessages().catch((err) => console.error(err))
-        loadFnsRef.current.loadConversationsMeta().catch((err) => console.error(err))
-      }, 500)
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => {
-      clearTimeout(focusTimeout)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!activeInstance || activeInstance.status !== 'connected') return
-
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        Promise.all([
-          loadFnsRef.current.loadMessages(),
-          loadFnsRef.current.loadConversationsMeta(),
-        ]).catch((err) => console.error('Background polling error:', err))
-      }
-    }, 20000)
-
-    return () => clearInterval(interval)
-  }, [activeInstance?.status, activeInstance?.instance_name])
-
   const handleManualRefresh = () => {
     setIsRefreshing(true)
     Promise.all([
