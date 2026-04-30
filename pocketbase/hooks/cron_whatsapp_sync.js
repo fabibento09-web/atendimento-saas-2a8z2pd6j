@@ -1,4 +1,4 @@
-cronAdd('whatsapp_gap_fill', '*/2 * * * *', () => {
+cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
   const apiUrl = $secrets.get('EVOLUTION_API_URL')
   const apiKey = $secrets.get('EVOLUTION_API_KEY')
   if (!apiUrl || !apiKey) return
@@ -27,6 +27,8 @@ cronAdd('whatsapp_gap_fill', '*/2 * * * *', () => {
 
     for (const instance of instances) {
       const instanceName = instance.getString('instance_name')
+      $app.logger().info('whatsapp_gap_fill: Instance sync started', 'instance', instanceName)
+      let instanceSyncedCount = 0
 
       let chatsRes
       try {
@@ -49,6 +51,19 @@ cronAdd('whatsapp_gap_fill', '*/2 * * * *', () => {
         continue
       }
 
+      if (chatsRes.statusCode === 401 || chatsRes.statusCode === 403) {
+        instance.set('status', 'disconnected')
+        $app.save(instance)
+        $app
+          .logger()
+          .warn(
+            'whatsapp_gap_fill: Instance disconnected due to auth error',
+            'instance',
+            instanceName,
+          )
+        continue
+      }
+
       if (chatsRes.statusCode !== 200 || !Array.isArray(chatsRes.json)) {
         $app
           .logger()
@@ -63,7 +78,7 @@ cronAdd('whatsapp_gap_fill', '*/2 * * * *', () => {
       }
 
       for (const chat of chatsRes.json) {
-        if (!chat.id || !chat.id.includes('@')) continue
+        if (!chat.id || (!chat.id.includes('@') && !chat.id.endsWith('@lid'))) continue
         const remoteJid = chat.id
 
         let maxTimestamp = 0
@@ -77,72 +92,130 @@ cronAdd('whatsapp_gap_fill', '*/2 * * * *', () => {
           maxTimestamp = latestMsg.getInt('timestamp')
         } catch (_) {}
 
-        const apiTimestamp =
-          chat.messageTimestamp || chat.conversationTimestamp || chat.timestamp || 0
-        if (maxTimestamp > 0 && apiTimestamp > 0 && apiTimestamp <= maxTimestamp) {
-          continue
-        }
+        let page = 1
+        const maxPages = 5
+        let hasMore = true
 
-        let msgsRes
-        try {
-          msgsRes = $http.send({
-            url: `${baseUrl}/chat/findMessages/${instanceName}`,
-            method: 'POST',
-            headers: { apikey: apiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              where: {
-                key: { remoteJid: remoteJid },
-              },
-              limit: 50,
-            }),
-            timeout: 30,
-          })
-        } catch (err) {
-          $app
-            .logger()
-            .error(
-              'whatsapp_gap_fill: Failed to fetch messages',
-              'chat',
-              remoteJid,
-              'error',
-              err.message,
-            )
-          continue
-        }
-
-        if (msgsRes.statusCode === 200 && msgsRes.json) {
-          let messages = []
-          if (Array.isArray(msgsRes.json)) {
-            messages = msgsRes.json
-          } else if (msgsRes.json.records && Array.isArray(msgsRes.json.records)) {
-            messages = msgsRes.json.records
-          } else if (
-            msgsRes.json.messages &&
-            msgsRes.json.messages.records &&
-            Array.isArray(msgsRes.json.messages.records)
-          ) {
-            messages = msgsRes.json.messages.records
-          } else if (msgsRes.json.messages && Array.isArray(msgsRes.json.messages)) {
-            messages = msgsRes.json.messages
-          }
-
-          let syncedCount = 0
-          for (const msg of messages) {
-            const msgTs = msg.messageTimestamp || 0
-            if (msgTs > maxTimestamp) {
-              const res = processIncomingMessage(instanceName, msg)
-              if (res && res.status === 'success') {
-                syncedCount++
-              }
-            }
-          }
-          if (syncedCount > 0) {
+        while (page <= maxPages && hasMore) {
+          let msgsRes
+          try {
+            msgsRes = $http.send({
+              url: `${baseUrl}/chat/findMessages/${instanceName}`,
+              method: 'POST',
+              headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                where: {
+                  key: { remoteJid: remoteJid },
+                },
+                limit: 200,
+                page: page,
+              }),
+              timeout: 30,
+            })
+          } catch (err) {
             $app
               .logger()
-              .info('whatsapp_gap_fill: Synced messages', 'chat', remoteJid, 'count', syncedCount)
+              .error(
+                'whatsapp_gap_fill: Failed to fetch messages',
+                'chat',
+                remoteJid,
+                'page',
+                page,
+                'error',
+                err.message,
+              )
+            break
+          }
+
+          if (msgsRes.statusCode === 401 || msgsRes.statusCode === 403) {
+            instance.set('status', 'disconnected')
+            $app.save(instance)
+            $app
+              .logger()
+              .warn(
+                'whatsapp_gap_fill: Instance disconnected due to auth error on messages fetch',
+                'instance',
+                instanceName,
+              )
+            hasMore = false
+            break
+          }
+
+          if (msgsRes.statusCode === 200 && msgsRes.json) {
+            let messages = []
+            if (Array.isArray(msgsRes.json)) {
+              messages = msgsRes.json
+            } else if (msgsRes.json.records && Array.isArray(msgsRes.json.records)) {
+              messages = msgsRes.json.records
+            } else if (
+              msgsRes.json.messages &&
+              msgsRes.json.messages.records &&
+              Array.isArray(msgsRes.json.messages.records)
+            ) {
+              messages = msgsRes.json.messages.records
+            } else if (msgsRes.json.messages && Array.isArray(msgsRes.json.messages)) {
+              messages = msgsRes.json.messages
+            }
+
+            if (messages.length === 0) {
+              hasMore = false
+              break
+            }
+
+            let pageSyncedCount = 0
+            let reachedOldMessages = false
+
+            for (const msg of messages) {
+              const msgTs = msg.messageTimestamp || 0
+              if (msgTs > maxTimestamp) {
+                const res = processIncomingMessage(instanceName, msg)
+                if (res && res.status === 'success') {
+                  pageSyncedCount++
+                  instanceSyncedCount++
+                }
+              } else if (maxTimestamp > 0 && msgTs > 0 && msgTs <= maxTimestamp) {
+                reachedOldMessages = true
+              }
+            }
+
+            if (pageSyncedCount > 0) {
+              $app
+                .logger()
+                .info(
+                  'whatsapp_gap_fill: Synced messages page',
+                  'chat',
+                  remoteJid,
+                  'page',
+                  page,
+                  'count',
+                  pageSyncedCount,
+                )
+            }
+
+            if (reachedOldMessages || messages.length < 200) {
+              hasMore = false
+            } else {
+              page++
+            }
+          } else {
+            hasMore = false
           }
         }
+
+        if (instance.getString('status') === 'disconnected') {
+          break
+        }
       }
+
+      $app
+        .logger()
+        .info(
+          'whatsapp_gap_fill: Instance sync ended',
+          'instance',
+          instanceName,
+          'totalSyncedCount',
+          instanceSyncedCount,
+        )
     }
   } catch (err) {
     $app.logger().error('whatsapp_gap_fill: Job failed', 'error', err.message)
