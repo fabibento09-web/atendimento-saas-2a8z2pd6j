@@ -52,6 +52,39 @@ routerAdd(
       timeout: 60,
     })
 
+    if (res.statusCode === 401 || res.statusCode === 403) {
+      const failures = instance.getInt('auth_failure_count') + 1
+      instance.set('auth_failure_count', failures)
+      if (failures >= 3) {
+        instance.set('status', 'disconnected')
+        $app
+          .logger()
+          .warn(
+            'whatsapp_send_media: Instance disconnected due to auth error (3 strikes)',
+            'instance',
+            instanceName,
+            'auth_failure_count',
+            failures,
+          )
+      } else {
+        $app
+          .logger()
+          .warn(
+            'whatsapp_send_media: Instance auth error, incrementing failure count',
+            'instance',
+            instanceName,
+            'auth_failure_count',
+            failures,
+          )
+      }
+      $app.save(instance)
+    } else if (res.statusCode === 200 || res.statusCode === 201) {
+      if (instance.getInt('auth_failure_count') > 0) {
+        instance.set('auth_failure_count', 0)
+        $app.save(instance)
+      }
+    }
+
     if (res.statusCode < 200 || res.statusCode >= 300) {
       $app
         .logger()

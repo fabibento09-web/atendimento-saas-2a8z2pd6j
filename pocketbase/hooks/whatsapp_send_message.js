@@ -49,6 +49,46 @@ routerAdd(
       timeout: 30,
     })
 
+    try {
+      const instance = $app.findFirstRecordByData(
+        'whatsapp_instances',
+        'instance_name',
+        instanceName,
+      )
+      if (res.statusCode === 401 || res.statusCode === 403) {
+        const failures = instance.getInt('auth_failure_count') + 1
+        instance.set('auth_failure_count', failures)
+        if (failures >= 3) {
+          instance.set('status', 'disconnected')
+          $app
+            .logger()
+            .warn(
+              'whatsapp_send_message: Instance disconnected due to auth error (3 strikes)',
+              'instance',
+              instanceName,
+              'auth_failure_count',
+              failures,
+            )
+        } else {
+          $app
+            .logger()
+            .warn(
+              'whatsapp_send_message: Instance auth error, incrementing failure count',
+              'instance',
+              instanceName,
+              'auth_failure_count',
+              failures,
+            )
+        }
+        $app.save(instance)
+      } else if (res.statusCode === 200 || res.statusCode === 201) {
+        if (instance.getInt('auth_failure_count') > 0) {
+          instance.set('auth_failure_count', 0)
+          $app.save(instance)
+        }
+      }
+    } catch (_) {}
+
     if (res.statusCode >= 400) {
       try {
         $app

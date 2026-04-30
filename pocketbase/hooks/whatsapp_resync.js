@@ -44,6 +44,39 @@ routerAdd(
         timeout: 30,
       })
 
+      if (chatsRes.statusCode === 401 || chatsRes.statusCode === 403) {
+        const failures = instance.getInt('auth_failure_count') + 1
+        instance.set('auth_failure_count', failures)
+        if (failures >= 3) {
+          instance.set('status', 'disconnected')
+          $app
+            .logger()
+            .warn(
+              'whatsapp_resync: Instance disconnected due to auth error (3 strikes)',
+              'instance',
+              instanceName,
+              'auth_failure_count',
+              failures,
+            )
+        } else {
+          $app
+            .logger()
+            .warn(
+              'whatsapp_resync: Instance auth error, incrementing failure count',
+              'instance',
+              instanceName,
+              'auth_failure_count',
+              failures,
+            )
+        }
+        $app.save(instance)
+      } else if (chatsRes.statusCode === 200) {
+        if (instance.getInt('auth_failure_count') > 0) {
+          instance.set('auth_failure_count', 0)
+          $app.save(instance)
+        }
+      }
+
       if (chatsRes.statusCode !== 200) {
         throw new Error('Failed to fetch chats: ' + chatsRes.statusCode)
       }
@@ -78,6 +111,40 @@ routerAdd(
               body: JSON.stringify(bodyReq),
               timeout: 30,
             })
+
+            if (msgRes.statusCode === 401 || msgRes.statusCode === 403) {
+              const failures = instance.getInt('auth_failure_count') + 1
+              instance.set('auth_failure_count', failures)
+              if (failures >= 3) {
+                instance.set('status', 'disconnected')
+                $app
+                  .logger()
+                  .warn(
+                    'whatsapp_resync: Instance disconnected due to auth error on messages fetch (3 strikes)',
+                    'instance',
+                    instanceName,
+                    'auth_failure_count',
+                    failures,
+                  )
+              } else {
+                $app
+                  .logger()
+                  .warn(
+                    'whatsapp_resync: Instance auth error on messages fetch, incrementing failure count',
+                    'instance',
+                    instanceName,
+                    'auth_failure_count',
+                    failures,
+                  )
+              }
+              $app.save(instance)
+              break
+            } else if (msgRes.statusCode === 200) {
+              if (instance.getInt('auth_failure_count') > 0) {
+                instance.set('auth_failure_count', 0)
+                $app.save(instance)
+              }
+            }
 
             if (msgRes.statusCode !== 200) {
               break
