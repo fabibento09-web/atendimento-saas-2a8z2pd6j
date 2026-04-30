@@ -54,6 +54,7 @@ import {
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
 import { addToCrm, findCrmContactByJid } from '@/services/crm_contacts'
+import chatBgPattern from '@/assets/skip_chat_bg_v1-291af.jpeg'
 
 export default function Conversas() {
   const [searchParams] = useSearchParams()
@@ -796,7 +797,11 @@ export default function Conversas() {
             </div>
 
             <div
-              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-[url('https://img.usecurling.com/p/1000/1000?q=noise&color=gray&dpr=1')] bg-cover relative"
+              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 relative bg-repeat bg-fixed"
+              style={{
+                backgroundImage: `url(${chatBgPattern})`,
+                backgroundSize: '400px',
+              }}
               ref={scrollRef}
             >
               <div className="flex justify-center my-4">
