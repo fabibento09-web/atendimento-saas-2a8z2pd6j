@@ -1,3 +1,227 @@
+cronAdd('whatsapp_manual_resync', '* * * * *', () => {
+  const apiUrl = $secrets.get('EVOLUTION_API_URL')
+  const apiKey = $secrets.get('EVOLUTION_API_KEY')
+  if (!apiUrl || !apiKey) return
+
+  const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
+  $app.logger().info('whatsapp_manual_resync: Started')
+
+  try {
+    let instances = []
+    try {
+      instances = $app.findRecordsByFilter(
+        'whatsapp_instances',
+        "status = 'connected' && (needs_resync = true || needs_initial_sync = true)",
+        '',
+        100,
+        0,
+      )
+    } catch (_) {}
+
+    if (instances.length === 0) {
+      return
+    }
+
+    const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
+    let fetchMessagesPage = null
+    try {
+      const evolutionClient = require(`${__hooks}/_lib/evolution_client.js`)
+      if (evolutionClient && evolutionClient.fetchMessagesPage) {
+        fetchMessagesPage = evolutionClient.fetchMessagesPage
+      }
+    } catch (_) {}
+
+    for (const instance of instances) {
+      const instanceName = instance.getString('instance_name')
+      const userId = instance.getString('user_id')
+      $app.logger().info('whatsapp_manual_resync: Sync started', 'instance', instanceName)
+
+      let totalMessagesSynced = 0
+      let chatsCount = 0
+
+      try {
+        // 1. Group Sync
+        try {
+          const res = $http.send({
+            url: `${baseUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`,
+            method: 'GET',
+            headers: { apikey: apiKey },
+            timeout: 15,
+          })
+          if (res.statusCode === 200 && res.json && Array.isArray(res.json)) {
+            for (const group of res.json) {
+              if (!group.id) continue
+              try {
+                let convRecord
+                try {
+                  convRecord = $app.findFirstRecordByFilter(
+                    'conversations',
+                    'user_id = {:userId} && remote_jid = {:remoteJid} && instance_name = {:instanceName}',
+                    { userId, remoteJid: group.id, instanceName },
+                  )
+                } catch (_) {
+                  const convCol = $app.findCollectionByNameOrId('conversations')
+                  convRecord = new Record(convCol)
+                  convRecord.set('user_id', userId)
+                  convRecord.set('remote_jid', group.id)
+                  convRecord.set('instance_name', instanceName)
+                  convRecord.set('is_group', true)
+                  convRecord.set('type', 'group')
+                  convRecord.set('contact_phone', group.id.split('@')[0])
+                }
+                if (group.subject) {
+                  convRecord.set('contact_name', group.subject)
+                }
+                $app.save(convRecord)
+              } catch (err) {
+                $app.logger().warn('Failed to upsert group during sync', 'error', err.message)
+              }
+            }
+          }
+        } catch (err) {
+          $app.logger().error('Failed group sync', 'error', err.message)
+        }
+
+        // 2. Chat & Message History Sync
+        try {
+          const chatRes = $http.send({
+            url: `${baseUrl}/chat/findChats/${instanceName}`,
+            method: 'POST',
+            headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+            body: '{}',
+            timeout: 30,
+          })
+
+          if (chatRes.statusCode === 200 && chatRes.json) {
+            let chats = []
+            const cJson = chatRes.json
+            if (Array.isArray(cJson)) chats = cJson
+            else if (Array.isArray(cJson.records)) chats = cJson.records
+            else if (cJson.chats && Array.isArray(cJson.chats.records)) chats = cJson.chats.records
+            else if (cJson.chats && Array.isArray(cJson.chats)) chats = cJson.chats
+
+            chats = chats
+              .map((c) => ({ ...c, _jid: c.remoteJid || c.id || '' }))
+              .filter((c) => c._jid && c._jid.includes('@'))
+            chatsCount = chats.length
+
+            for (const chat of chats) {
+              try {
+                let hasMore = true
+                let page = 1
+
+                while (hasMore && page <= 5) {
+                  let msgRes
+                  if (fetchMessagesPage) {
+                    msgRes = fetchMessagesPage(baseUrl, apiKey, instanceName, chat._jid, 200, page)
+                  } else {
+                    msgRes = $http.send({
+                      url: `${baseUrl}/chat/findMessages/${instanceName}`,
+                      method: 'POST',
+                      headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        where: { key: { remoteJid: chat._jid } },
+                        limit: 200,
+                        page: page,
+                      }),
+                      timeout: 30,
+                    })
+                  }
+
+                  if (msgRes.statusCode !== 200 || !msgRes.json) {
+                    break
+                  }
+
+                  let messages = []
+                  const rJson = msgRes.json
+                  if (Array.isArray(rJson)) messages = rJson
+                  else if (Array.isArray(rJson.records)) messages = rJson.records
+                  else if (rJson.messages) {
+                    if (Array.isArray(rJson.messages)) messages = rJson.messages
+                    else if (Array.isArray(rJson.messages.records))
+                      messages = rJson.messages.records
+                  }
+
+                  if (!messages || messages.length === 0) {
+                    hasMore = false
+                    break
+                  }
+
+                  for (const msg of messages) {
+                    try {
+                      const res = processIncomingMessage(instanceName, msg)
+                      if (res && res.status === 'success') totalMessagesSynced++
+                    } catch (err) {
+                      // ignore
+                    }
+                  }
+
+                  if (messages.length < 200) {
+                    hasMore = false
+                  }
+                  page++
+                }
+              } catch (chatErr) {
+                $app
+                  .logger()
+                  .warn(
+                    'Failed to sync history for chat',
+                    'chat',
+                    chat._jid,
+                    'error',
+                    chatErr.message,
+                  )
+              }
+            }
+          }
+        } catch (err) {
+          $app.logger().error('Failed chat history sync', 'error', err.message)
+        }
+      } catch (err) {
+        $app
+          .logger()
+          .error(
+            'whatsapp_manual_resync: Instance processing error',
+            'instance',
+            instanceName,
+            'error',
+            err.message,
+          )
+      } finally {
+        $app
+          .logger()
+          .info(
+            'whatsapp_manual_resync: Sync finished',
+            'instance',
+            instanceName,
+            'chats',
+            chatsCount,
+            'messages_synced',
+            totalMessagesSynced,
+          )
+
+        try {
+          instance.set('needs_resync', false)
+          instance.set('needs_initial_sync', false)
+          $app.save(instance)
+        } catch (err) {
+          $app
+            .logger()
+            .error(
+              'whatsapp_manual_resync: Failed to reset flags',
+              'instance',
+              instanceName,
+              'error',
+              err.message,
+            )
+        }
+      }
+    }
+  } catch (err) {
+    $app.logger().error('whatsapp_manual_resync: Job failed', 'error', err.message)
+  }
+})
+
 cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
   const apiUrl = $secrets.get('EVOLUTION_API_URL')
   const apiKey = $secrets.get('EVOLUTION_API_KEY')
