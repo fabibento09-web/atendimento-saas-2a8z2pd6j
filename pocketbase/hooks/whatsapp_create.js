@@ -31,7 +31,18 @@ routerAdd(
         url: webhookUrl,
         byEvents: false,
         base64: true,
-        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+        events: [
+          'QRCODE_UPDATED',
+          'CONNECTION_UPDATE',
+          'MESSAGES_UPSERT',
+          'MESSAGES_SET',
+          'MESSAGES_UPDATE',
+          'CONTACTS_UPSERT',
+          'CHATS_UPSERT',
+          'GROUPS_UPSERT',
+          'GROUP_UPDATE',
+          'SEND_MESSAGE',
+        ],
       },
     }
 
