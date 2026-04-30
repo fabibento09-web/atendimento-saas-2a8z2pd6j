@@ -1,264 +1,3 @@
-cronAdd('whatsapp_initial_sync', '*/30 * * * * *', () => {
-  const apiUrl = $secrets.get('EVOLUTION_API_URL')
-  const apiKey = $secrets.get('EVOLUTION_API_KEY')
-  if (!apiUrl || !apiKey) return
-
-  const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl
-
-  let instances = []
-  try {
-    instances = $app.findRecordsByFilter(
-      'whatsapp_instances',
-      'needs_initial_sync = true',
-      '',
-      10,
-      0,
-    )
-  } catch (_) {}
-
-  if (instances.length === 0) return
-
-  const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
-  const { fetchMessagesPage } = require(`${__hooks}/_lib/evolution_client.js`)
-
-  for (const instance of instances) {
-    const instanceName = instance.getString('instance_name')
-    const userId = instance.getString('user_id')
-    $app.logger().info('whatsapp_initial_sync: Started for instance', 'instance', instanceName)
-
-    try {
-      // 1. Group Sync
-      try {
-        const res = $http.send({
-          url: `${baseUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`,
-          method: 'GET',
-          headers: { apikey: apiKey },
-          timeout: 15,
-        })
-        if (res.statusCode === 401 || res.statusCode === 403) {
-          const failures = instance.getInt('auth_failure_count') + 1
-          instance.set('auth_failure_count', failures)
-          if (failures >= 3) {
-            instance.set('status', 'disconnected')
-            $app
-              .logger()
-              .warn(
-                'whatsapp_initial_sync: Instance disconnected due to auth error (3 strikes)',
-                'instance',
-                instanceName,
-                'auth_failure_count',
-                failures,
-              )
-          } else {
-            $app
-              .logger()
-              .warn(
-                'whatsapp_initial_sync: Instance auth error, incrementing failure count',
-                'instance',
-                instanceName,
-                'auth_failure_count',
-                failures,
-              )
-          }
-          $app.save(instance)
-        } else if (res.statusCode === 200) {
-          if (instance.getInt('auth_failure_count') > 0) {
-            instance.set('auth_failure_count', 0)
-            $app.save(instance)
-          }
-        }
-        if (res.statusCode === 200 && res.json && Array.isArray(res.json)) {
-          for (const group of res.json) {
-            if (!group.id) continue
-            try {
-              let convRecord
-              try {
-                convRecord = $app.findFirstRecordByFilter(
-                  'conversations',
-                  'user_id = {:userId} && remote_jid = {:remoteJid} && instance_name = {:instanceName}',
-                  { userId, remoteJid: group.id, instanceName },
-                )
-              } catch (_) {
-                const convCol = $app.findCollectionByNameOrId('conversations')
-                convRecord = new Record(convCol)
-                convRecord.set('user_id', userId)
-                convRecord.set('remote_jid', group.id)
-                convRecord.set('instance_name', instanceName)
-                convRecord.set('is_group', true)
-                convRecord.set('type', 'group')
-                convRecord.set('contact_phone', group.id.split('@')[0])
-              }
-              if (group.subject) {
-                convRecord.set('contact_name', group.subject)
-              }
-              $app.save(convRecord)
-            } catch (err) {
-              $app.logger().warn('Failed to upsert group during initial sync', 'error', err.message)
-            }
-          }
-        }
-      } catch (err) {
-        $app.logger().error('Failed group initial sync', 'error', err.message)
-      }
-
-      // 2. Chat & Message History Sync
-      try {
-        const chatRes = $http.send({
-          url: `${baseUrl}/chat/findChats/${instanceName}`,
-          method: 'GET',
-          headers: { apikey: apiKey },
-          timeout: 30,
-        })
-
-        if (chatRes.statusCode === 401 || chatRes.statusCode === 403) {
-          const failures = instance.getInt('auth_failure_count') + 1
-          instance.set('auth_failure_count', failures)
-          if (failures >= 3) {
-            instance.set('status', 'disconnected')
-            $app
-              .logger()
-              .warn(
-                'whatsapp_initial_sync: Instance disconnected due to auth error on chats fetch (3 strikes)',
-                'instance',
-                instanceName,
-                'auth_failure_count',
-                failures,
-              )
-          } else {
-            $app
-              .logger()
-              .warn(
-                'whatsapp_initial_sync: Instance auth error on chats fetch, incrementing failure count',
-                'instance',
-                instanceName,
-                'auth_failure_count',
-                failures,
-              )
-          }
-          $app.save(instance)
-        } else if (chatRes.statusCode === 200) {
-          if (instance.getInt('auth_failure_count') > 0) {
-            instance.set('auth_failure_count', 0)
-            $app.save(instance)
-          }
-        }
-
-        if (chatRes.statusCode === 200 && chatRes.json) {
-          let chats = []
-          const cJson = chatRes.json
-          if (Array.isArray(cJson)) chats = cJson
-          else if (Array.isArray(cJson.records)) chats = cJson.records
-          else if (cJson.chats && Array.isArray(cJson.chats.records)) chats = cJson.chats.records
-          else if (cJson.chats && Array.isArray(cJson.chats)) chats = cJson.chats
-
-          chats = chats.filter((c) => c.id && c.id.includes('@'))
-          let totalMessagesSynced = 0
-
-          for (const chat of chats) {
-            try {
-              let hasMore = true
-              let page = 1
-
-              while (hasMore && page <= 5) {
-                const res = fetchMessagesPage(instanceName, chat.id, page)
-
-                if (res.statusCode === 401 || res.statusCode === 403) {
-                  const failures = instance.getInt('auth_failure_count') + 1
-                  instance.set('auth_failure_count', failures)
-                  if (failures >= 3) {
-                    instance.set('status', 'disconnected')
-                    $app
-                      .logger()
-                      .warn(
-                        'whatsapp_initial_sync: Instance disconnected due to auth error on messages fetch (3 strikes)',
-                        'instance',
-                        instanceName,
-                        'auth_failure_count',
-                        failures,
-                      )
-                  } else {
-                    $app
-                      .logger()
-                      .warn(
-                        'whatsapp_initial_sync: Instance auth error on messages fetch, incrementing failure count',
-                        'instance',
-                        instanceName,
-                        'auth_failure_count',
-                        failures,
-                      )
-                  }
-                  $app.save(instance)
-                  break
-                } else if (res.statusCode === 200) {
-                  if (instance.getInt('auth_failure_count') > 0) {
-                    instance.set('auth_failure_count', 0)
-                    $app.save(instance)
-                  }
-                }
-
-                if (res.statusCode !== 200) {
-                  break
-                }
-
-                const messages = res.messages
-
-                if (!messages || messages.length === 0) {
-                  hasMore = false
-                  break
-                }
-
-                for (const msg of messages) {
-                  try {
-                    processIncomingMessage(instanceName, msg)
-                    totalMessagesSynced++
-                  } catch (err) {}
-                }
-
-                if (messages.length < 200) {
-                  hasMore = false
-                }
-                page++
-              }
-            } catch (chatErr) {
-              $app
-                .logger()
-                .warn('Failed to sync history for chat', 'chat', chat.id, 'error', chatErr.message)
-            }
-          }
-
-          $app
-            .logger()
-            .info(
-              'whatsapp_initial_sync: Completed for instance',
-              'instance',
-              instanceName,
-              'chats',
-              chats.length,
-              'messages_synced',
-              totalMessagesSynced,
-            )
-        }
-      } catch (err) {
-        $app.logger().error('Failed chat history initial sync', 'error', err.message)
-      }
-
-      // Mark as synced
-      instance.set('needs_initial_sync', false)
-      $app.save(instance)
-    } catch (err) {
-      $app
-        .logger()
-        .error(
-          'whatsapp_initial_sync failed for instance',
-          'instance',
-          instanceName,
-          'error',
-          err.message,
-        )
-    }
-  }
-})
-
 cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
   const apiUrl = $secrets.get('EVOLUTION_API_URL')
   const apiKey = $secrets.get('EVOLUTION_API_KEY')
@@ -285,7 +24,6 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
     }
 
     const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
-    const { fetchMessagesPage } = require(`${__hooks}/_lib/evolution_client.js`)
 
     for (const instance of instances) {
       const instanceName = instance.getString('instance_name')
@@ -314,37 +52,16 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
       }
 
       if (chatsRes.statusCode === 401 || chatsRes.statusCode === 403) {
-        const failures = instance.getInt('auth_failure_count') + 1
-        instance.set('auth_failure_count', failures)
-        if (failures >= 3) {
-          instance.set('status', 'disconnected')
-          $app
-            .logger()
-            .warn(
-              'whatsapp_gap_fill: Instance disconnected due to auth error (3 strikes)',
-              'instance',
-              instanceName,
-              'auth_failure_count',
-              failures,
-            )
-        } else {
-          $app
-            .logger()
-            .warn(
-              'whatsapp_gap_fill: Instance auth error, incrementing failure count',
-              'instance',
-              instanceName,
-              'auth_failure_count',
-              failures,
-            )
-        }
+        instance.set('status', 'disconnected')
         $app.save(instance)
+        $app
+          .logger()
+          .warn(
+            'whatsapp_gap_fill: Instance disconnected due to auth error',
+            'instance',
+            instanceName,
+          )
         continue
-      } else if (chatsRes.statusCode === 200) {
-        if (instance.getInt('auth_failure_count') > 0) {
-          instance.set('auth_failure_count', 0)
-          $app.save(instance)
-        }
       }
 
       if (chatsRes.statusCode !== 200 || !Array.isArray(chatsRes.json)) {
@@ -380,45 +97,65 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
         let hasMore = true
 
         while (page <= maxPages && hasMore) {
-          const res = fetchMessagesPage(instanceName, remoteJid, page)
-
-          if (res.statusCode === 401 || res.statusCode === 403) {
-            const failures = instance.getInt('auth_failure_count') + 1
-            instance.set('auth_failure_count', failures)
-            if (failures >= 3) {
-              instance.set('status', 'disconnected')
-              $app
-                .logger()
-                .warn(
-                  'whatsapp_gap_fill: Instance disconnected due to auth error on messages fetch (3 strikes)',
-                  'instance',
-                  instanceName,
-                  'auth_failure_count',
-                  failures,
-                )
-            } else {
-              $app
-                .logger()
-                .warn(
-                  'whatsapp_gap_fill: Instance auth error on messages fetch, incrementing failure count',
-                  'instance',
-                  instanceName,
-                  'auth_failure_count',
-                  failures,
-                )
-            }
-            $app.save(instance)
-            hasMore = false
+          let msgsRes
+          try {
+            msgsRes = $http.send({
+              url: `${baseUrl}/chat/findMessages/${instanceName}`,
+              method: 'POST',
+              headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                where: {
+                  key: { remoteJid: remoteJid },
+                },
+                limit: 200,
+                page: page,
+              }),
+              timeout: 30,
+            })
+          } catch (err) {
+            $app
+              .logger()
+              .error(
+                'whatsapp_gap_fill: Failed to fetch messages',
+                'chat',
+                remoteJid,
+                'page',
+                page,
+                'error',
+                err.message,
+              )
             break
-          } else if (res.statusCode === 200) {
-            if (instance.getInt('auth_failure_count') > 0) {
-              instance.set('auth_failure_count', 0)
-              $app.save(instance)
-            }
           }
 
-          if (res.statusCode === 200) {
-            const messages = res.messages
+          if (msgsRes.statusCode === 401 || msgsRes.statusCode === 403) {
+            instance.set('status', 'disconnected')
+            $app.save(instance)
+            $app
+              .logger()
+              .warn(
+                'whatsapp_gap_fill: Instance disconnected due to auth error on messages fetch',
+                'instance',
+                instanceName,
+              )
+            hasMore = false
+            break
+          }
+
+          if (msgsRes.statusCode === 200 && msgsRes.json) {
+            let messages = []
+            if (Array.isArray(msgsRes.json)) {
+              messages = msgsRes.json
+            } else if (msgsRes.json.records && Array.isArray(msgsRes.json.records)) {
+              messages = msgsRes.json.records
+            } else if (
+              msgsRes.json.messages &&
+              msgsRes.json.messages.records &&
+              Array.isArray(msgsRes.json.messages.records)
+            ) {
+              messages = msgsRes.json.messages.records
+            } else if (msgsRes.json.messages && Array.isArray(msgsRes.json.messages)) {
+              messages = msgsRes.json.messages
+            }
 
             if (messages.length === 0) {
               hasMore = false
@@ -536,39 +273,6 @@ cronAdd('sync_avatars', '* * * * *', () => {
         body: JSON.stringify({ number: remoteJid }),
         timeout: 10,
       })
-
-      if (res.statusCode === 401 || res.statusCode === 403) {
-        const failures = instance.getInt('auth_failure_count') + 1
-        instance.set('auth_failure_count', failures)
-        if (failures >= 3) {
-          instance.set('status', 'disconnected')
-          $app
-            .logger()
-            .warn(
-              'sync_avatars: Instance disconnected due to auth error (3 strikes)',
-              'instance',
-              instanceName,
-              'auth_failure_count',
-              failures,
-            )
-        } else {
-          $app
-            .logger()
-            .warn(
-              'sync_avatars: Instance auth error, incrementing failure count',
-              'instance',
-              instanceName,
-              'auth_failure_count',
-              failures,
-            )
-        }
-        $app.save(instance)
-      } else if (res.statusCode === 200) {
-        if (instance.getInt('auth_failure_count') > 0) {
-          instance.set('auth_failure_count', 0)
-          $app.save(instance)
-        }
-      }
 
       if (res.statusCode === 200 && res.json && res.json.profilePictureUrl) {
         const file = $filesystem.fileFromURL(res.json.profilePictureUrl)

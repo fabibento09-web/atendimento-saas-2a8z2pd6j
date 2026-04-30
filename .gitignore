@@ -34,3 +34,6 @@ screenshot.png
 
 # Environment variables
 .env*
+
+# Claude Code local settings
+.claude/settings.local.json

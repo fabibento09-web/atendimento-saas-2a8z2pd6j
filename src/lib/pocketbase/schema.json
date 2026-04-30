@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-30T20:40:57.935Z",
+  "generatedAt": "2026-04-30T20:04:22.244Z",
   "collections": [
     {
       "name": "users",
@@ -262,18 +262,6 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
-        },
-        {
-          "name": "needs_initial_sync",
-          "type": "bool",
-          "required": false,
-          "system": false
-        },
-        {
-          "name": "auth_failure_count",
-          "type": "number",
-          "required": false,
-          "system": false
         }
       ],
       "indexes": []

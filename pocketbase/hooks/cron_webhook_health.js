@@ -83,7 +83,13 @@ cronAdd('webhook_health_check', '*/10 * * * *', () => {
 
     if (needsUpdate) {
       try {
+        // We supply both root-level and nested `webhook` properties to support various Evolution API versions.
         const payload = {
+          enabled: true,
+          url: webhookUrl,
+          byEvents: false,
+          base64: true,
+          events: expectedEvents,
           webhook: {
             enabled: true,
             url: webhookUrl,
@@ -107,26 +113,19 @@ cronAdd('webhook_health_check', '*/10 * * * *', () => {
         if (setRes.statusCode === 200 || setRes.statusCode === 201) {
           $app
             .logger()
-            .info(
-              'Successfully restored webhook configuration',
-              'instance_name',
-              instanceName,
-              'statusCode',
-              setRes.statusCode,
-              'response',
-              JSON.stringify(setRes.json || {}),
-            )
+            .info('Successfully restored webhook configuration', 'instance', instanceName)
         } else {
+          const errorMsg = setRes.json ? setRes.json.message || JSON.stringify(setRes.json) : ''
           $app
             .logger()
             .error(
               'Failed to set webhook configuration',
-              'instance_name',
+              'instance',
               instanceName,
-              'statusCode',
+              'status',
               setRes.statusCode,
-              'response',
-              JSON.stringify(setRes.json || {}),
+              'error',
+              errorMsg,
             )
         }
       } catch (err) {
@@ -134,7 +133,7 @@ cronAdd('webhook_health_check', '*/10 * * * *', () => {
           .logger()
           .error(
             'Transport error while setting webhook configuration',
-            'instance_name',
+            'instance',
             instanceName,
             'error',
             err.message,

@@ -49,46 +49,6 @@ routerAdd(
       timeout: 30,
     })
 
-    try {
-      const instance = $app.findFirstRecordByData(
-        'whatsapp_instances',
-        'instance_name',
-        instanceName,
-      )
-      if (res.statusCode === 401 || res.statusCode === 403) {
-        const failures = instance.getInt('auth_failure_count') + 1
-        instance.set('auth_failure_count', failures)
-        if (failures >= 3) {
-          instance.set('status', 'disconnected')
-          $app
-            .logger()
-            .warn(
-              'whatsapp_send_message: Instance disconnected due to auth error (3 strikes)',
-              'instance',
-              instanceName,
-              'auth_failure_count',
-              failures,
-            )
-        } else {
-          $app
-            .logger()
-            .warn(
-              'whatsapp_send_message: Instance auth error, incrementing failure count',
-              'instance',
-              instanceName,
-              'auth_failure_count',
-              failures,
-            )
-        }
-        $app.save(instance)
-      } else if (res.statusCode === 200 || res.statusCode === 201) {
-        if (instance.getInt('auth_failure_count') > 0) {
-          instance.set('auth_failure_count', 0)
-          $app.save(instance)
-        }
-      }
-    } catch (_) {}
-
     if (res.statusCode >= 400) {
       try {
         $app
@@ -119,77 +79,6 @@ routerAdd(
         }
 
         $app.saveNoValidate(record)
-
-        // Sync Conversation
-        if (jid && jid !== 'status@broadcast') {
-          try {
-            const isGroup = jid.includes('@g.us')
-            const chatType = isGroup ? 'group' : 'individual'
-            let convRecord
-            try {
-              convRecord = $app.findFirstRecordByFilter(
-                'conversations',
-                'user_id = {:userId} && remote_jid = {:remoteJid} && instance_name = {:instanceName}',
-                { userId, remoteJid: jid, instanceName },
-              )
-            } catch (_) {
-              const convCol = $app.findCollectionByNameOrId('conversations')
-              convRecord = new Record(convCol)
-              convRecord.set('user_id', userId)
-              convRecord.set('remote_jid', jid)
-              convRecord.set('instance_name', instanceName)
-              convRecord.set('is_group', isGroup)
-              convRecord.set('type', chatType)
-              convRecord.set('contact_phone', jid.split('@')[0])
-            }
-
-            convRecord.set('last_message', text)
-            convRecord.set('unread_count', 0)
-
-            const now = new Date()
-            const fetchedAtStr = convRecord.getString('picture_fetched_at')
-            let needsFetch = !convRecord.getString('avatar')
-            if (fetchedAtStr && !needsFetch) {
-              const fetchedAt = new Date(fetchedAtStr)
-              if (now.getTime() - fetchedAt.getTime() > 24 * 60 * 60 * 1000) {
-                needsFetch = true
-              }
-            }
-
-            if (needsFetch && apiUrl && apiKey) {
-              try {
-                const resAvatar = $http.send({
-                  url: `${apiUrl.replace(/\/+$/, '')}/chat/fetchProfilePictureUrl/${instanceName}`,
-                  method: 'POST',
-                  headers: { apikey: apiKey, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ number: jid }),
-                  timeout: 10,
-                })
-                if (
-                  resAvatar.statusCode === 200 &&
-                  resAvatar.json &&
-                  resAvatar.json.profilePictureUrl
-                ) {
-                  const file = $filesystem.fileFromURL(resAvatar.json.profilePictureUrl)
-                  convRecord.set('avatar', file)
-                }
-              } catch (e) {
-                $app
-                  .logger()
-                  .warn('Failed to fetch/save avatar on send message', 'error', e.message)
-              }
-              convRecord.set('picture_fetched_at', new Date().toISOString())
-            }
-
-            $app.save(convRecord)
-          } catch (err) {
-            try {
-              $app
-                .logger()
-                .error('Failed to sync conversation on send message', 'error', err.message)
-            } catch (_) {}
-          }
-        }
       } catch (err) {
         try {
           $app.logger().error('Failed to save sent message', 'error', err.message)

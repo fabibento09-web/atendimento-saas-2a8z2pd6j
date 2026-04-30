@@ -198,53 +198,6 @@ module.exports = function processIncomingMessage(instanceName, data) {
               timeout: 30,
             })
 
-            if (res.statusCode === 401 || res.statusCode === 403) {
-              try {
-                const instance = $app.findFirstRecordByData(
-                  'whatsapp_instances',
-                  'instance_name',
-                  instanceName,
-                )
-                const failures = instance.getInt('auth_failure_count') + 1
-                instance.set('auth_failure_count', failures)
-                if (failures >= 3) {
-                  instance.set('status', 'disconnected')
-                  $app
-                    .logger()
-                    .warn(
-                      'process_message: Instance disconnected due to auth error (3 strikes)',
-                      'instance',
-                      instanceName,
-                      'auth_failure_count',
-                      failures,
-                    )
-                } else {
-                  $app
-                    .logger()
-                    .warn(
-                      'process_message: Instance auth error, incrementing failure count',
-                      'instance',
-                      instanceName,
-                      'auth_failure_count',
-                      failures,
-                    )
-                }
-                $app.save(instance)
-              } catch (_) {}
-            } else if (res.statusCode === 200) {
-              try {
-                const instance = $app.findFirstRecordByData(
-                  'whatsapp_instances',
-                  'instance_name',
-                  instanceName,
-                )
-                if (instance.getInt('auth_failure_count') > 0) {
-                  instance.set('auth_failure_count', 0)
-                  $app.save(instance)
-                }
-              } catch (_) {}
-            }
-
             if (res.statusCode === 200 && res.json && res.json.base64) {
               b64 = res.json.base64
               $app.logger().info('Using base64 from HTTP API call')
@@ -390,42 +343,6 @@ module.exports = function processIncomingMessage(instanceName, data) {
               headers: { apikey: apiKey },
               timeout: 5,
             })
-            if (res.statusCode === 401 || res.statusCode === 403) {
-              try {
-                const failures = instanceRecord.getInt('auth_failure_count') + 1
-                instanceRecord.set('auth_failure_count', failures)
-                if (failures >= 3) {
-                  instanceRecord.set('status', 'disconnected')
-                  $app
-                    .logger()
-                    .warn(
-                      'process_message: Instance disconnected due to auth error on group info (3 strikes)',
-                      'instance',
-                      instanceName,
-                      'auth_failure_count',
-                      failures,
-                    )
-                } else {
-                  $app
-                    .logger()
-                    .warn(
-                      'process_message: Instance auth error on group info, incrementing failure count',
-                      'instance',
-                      instanceName,
-                      'auth_failure_count',
-                      failures,
-                    )
-                }
-                $app.save(instanceRecord)
-              } catch (_) {}
-            } else if (res.statusCode === 200) {
-              try {
-                if (instanceRecord.getInt('auth_failure_count') > 0) {
-                  instanceRecord.set('auth_failure_count', 0)
-                  $app.save(instanceRecord)
-                }
-              } catch (_) {}
-            }
             if (res.statusCode === 200 && res.json && res.json.subject) {
               convRecord.set('contact_name', res.json.subject)
             }
@@ -453,42 +370,6 @@ module.exports = function processIncomingMessage(instanceName, data) {
               body: JSON.stringify({ number: remoteJid }),
               timeout: 10,
             })
-            if (res.statusCode === 401 || res.statusCode === 403) {
-              try {
-                const failures = instanceRecord.getInt('auth_failure_count') + 1
-                instanceRecord.set('auth_failure_count', failures)
-                if (failures >= 3) {
-                  instanceRecord.set('status', 'disconnected')
-                  $app
-                    .logger()
-                    .warn(
-                      'process_message: Instance disconnected due to auth error on avatar fetch (3 strikes)',
-                      'instance',
-                      instanceName,
-                      'auth_failure_count',
-                      failures,
-                    )
-                } else {
-                  $app
-                    .logger()
-                    .warn(
-                      'process_message: Instance auth error on avatar fetch, incrementing failure count',
-                      'instance',
-                      instanceName,
-                      'auth_failure_count',
-                      failures,
-                    )
-                }
-                $app.save(instanceRecord)
-              } catch (_) {}
-            } else if (res.statusCode === 200) {
-              try {
-                if (instanceRecord.getInt('auth_failure_count') > 0) {
-                  instanceRecord.set('auth_failure_count', 0)
-                  $app.save(instanceRecord)
-                }
-              } catch (_) {}
-            }
             if (res.statusCode === 200 && res.json && res.json.profilePictureUrl) {
               const file = $filesystem.fileFromURL(res.json.profilePictureUrl)
               convRecord.set('avatar', file)
