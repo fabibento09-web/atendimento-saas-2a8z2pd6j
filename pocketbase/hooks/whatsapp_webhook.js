@@ -112,6 +112,13 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
         record.set('push_name', data.pushName || '')
         record.set('timestamp', data.messageTimestamp || 0)
 
+        if (key.participant) {
+          record.set('participant_jid', key.participant)
+        }
+        if (data.pushName) {
+          record.set('participant_pushname', data.pushName)
+        }
+
         let messageData = data.message || {}
 
         if (

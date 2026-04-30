@@ -12,6 +12,8 @@ export interface WhatsAppMessage {
   timestamp: number
   created: string
   updated: string
+  participant_jid?: string
+  participant_pushname?: string
   media_url?: string
   media_mimetype?: string
   media_filename?: string

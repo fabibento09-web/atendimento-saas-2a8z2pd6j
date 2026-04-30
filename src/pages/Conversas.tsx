@@ -777,212 +777,258 @@ export default function Conversas() {
                   }
                 }
 
+                const isGroupChat = activeConversation?.is_group
+                const showSenderHeader =
+                  isGroupChat &&
+                  !msg.from_me &&
+                  (msg.participant_jid || msg.participant_pushname || msg.push_name)
+
+                const formatPhoneNumber = (jid?: string) => {
+                  if (!jid) return ''
+                  if (jid.endsWith('@lid')) return ''
+                  const number = jid.split('@')[0]
+                  if (number.length >= 12) {
+                    const ddi = number.substring(0, 2)
+                    const ddd = number.substring(2, 4)
+                    const firstPart = number.substring(4, number.length - 4)
+                    const lastPart = number.substring(number.length - 4)
+                    return `+${ddi} ${ddd} ${firstPart}-${lastPart}`
+                  }
+                  return `+${number}`
+                }
+
                 return (
                   <div
                     key={msg.id}
-                    className={cn('flex w-full', msg.from_me ? 'justify-end' : 'justify-start')}
-                  >
-                    {renderType === 'sticker' && msg.from_me && (
-                      <span className="text-[10px] mt-auto mr-2 mb-2 text-muted-foreground font-medium shrink-0">
-                        {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                    className={cn(
+                      'flex flex-col w-full',
+                      msg.from_me ? 'items-end' : 'items-start',
                     )}
-
+                  >
+                    {showSenderHeader && (
+                      <div className="flex items-baseline gap-1.5 mb-1 px-1.5 max-w-[85%] md:max-w-[70%]">
+                        <span className="text-[11px] font-semibold text-primary truncate max-w-[150px]">
+                          {msg.participant_pushname || msg.push_name || 'Sem nome'}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {formatPhoneNumber(msg.participant_jid)}
+                        </span>
+                      </div>
+                    )}
                     <div
-                      className={cn(
-                        'max-w-[85%] md:max-w-[70%] shadow-sm relative group rounded-2xl border overflow-hidden',
-                        renderType === 'sticker'
-                          ? 'bg-transparent border-transparent shadow-none'
-                          : msg.from_me
-                            ? 'bg-[#2d4635] text-white rounded-tr-sm border-[#2d4635] p-2'
-                            : 'bg-card text-foreground rounded-tl-sm border-muted p-2',
-                      )}
+                      className={cn('flex w-full', msg.from_me ? 'justify-end' : 'justify-start')}
                     >
-                      {mediaError ? (
-                        <div className="flex items-center gap-2 p-2 text-sm italic opacity-70">
-                          {getErrorIcon()}
-                          Mídia indisponível
-                        </div>
-                      ) : (
-                        <>
-                          {renderType === 'image' ? (
-                            <div className="flex flex-col gap-2">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <img
-                                    src={getMediaUrl(msg)}
-                                    alt="Imagem recebida"
-                                    className="max-w-full max-h-[300px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                  />
-                                </DialogTrigger>
-                                <DialogContent className="max-w-4xl p-1 bg-transparent border-none shadow-none flex justify-center [&>button]:bg-background [&>button]:text-foreground [&>button]:rounded-full [&>button]:p-1 [&>button]:shadow-md">
-                                  <img
-                                    src={getMediaUrl(msg)}
-                                    alt="Imagem ampliada"
-                                    className="max-w-full max-h-[85vh] object-contain rounded-lg"
-                                  />
-                                </DialogContent>
-                              </Dialog>
-                              {(msg.caption || msg.content) && (
-                                <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
-                                  {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
-                                </p>
-                              )}
-                            </div>
-                          ) : renderType === 'video' ? (
-                            <div className="flex flex-col gap-2">
-                              <video
-                                src={getMediaUrl(msg)}
-                                controls
-                                className="max-w-full max-h-[300px] rounded-lg"
-                              />
-                              {(msg.caption || msg.content) && (
-                                <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
-                                  {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
-                                </p>
-                              )}
-                            </div>
-                          ) : renderType === 'audio' ? (
-                            <div className="py-2 w-full">
-                              <audio
-                                src={getMediaUrl(msg)}
-                                controls
-                                className="w-full min-w-[250px] md:min-w-[300px]"
-                              />
-                            </div>
-                          ) : renderType === 'document' ? (
-                            <div className="flex flex-col gap-3 p-2 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-primary/20 text-primary rounded-lg flex items-center justify-center shrink-0">
-                                  <FileText className="w-5 h-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p
-                                    className="text-sm font-semibold truncate"
-                                    title={msg.media_filename || 'Documento'}
-                                  >
-                                    {msg.media_filename || 'Documento'}
+                      {renderType === 'sticker' && msg.from_me && (
+                        <span className="text-[10px] mt-auto mr-2 mb-2 text-muted-foreground font-medium shrink-0">
+                          {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      )}
+
+                      <div
+                        className={cn(
+                          'max-w-[85%] md:max-w-[70%] shadow-sm relative group rounded-2xl border overflow-hidden',
+                          renderType === 'sticker'
+                            ? 'bg-transparent border-transparent shadow-none'
+                            : msg.from_me
+                              ? 'bg-[#2d4635] text-white rounded-tr-sm border-[#2d4635] p-2'
+                              : 'bg-card text-foreground rounded-tl-sm border-muted p-2',
+                        )}
+                      >
+                        {mediaError ? (
+                          <div className="flex items-center gap-2 p-2 text-sm italic opacity-70">
+                            {getErrorIcon()}
+                            Mídia indisponível
+                          </div>
+                        ) : (
+                          <>
+                            {renderType === 'image' ? (
+                              <div className="flex flex-col gap-2">
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <img
+                                      src={getMediaUrl(msg)}
+                                      alt="Imagem recebida"
+                                      className="max-w-full max-h-[300px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                    />
+                                  </DialogTrigger>
+                                  <DialogContent className="max-w-4xl p-1 bg-transparent border-none shadow-none flex justify-center [&>button]:bg-background [&>button]:text-foreground [&>button]:rounded-full [&>button]:p-1 [&>button]:shadow-md">
+                                    <img
+                                      src={getMediaUrl(msg)}
+                                      alt="Imagem ampliada"
+                                      className="max-w-full max-h-[85vh] object-contain rounded-lg"
+                                    />
+                                  </DialogContent>
+                                </Dialog>
+                                {(msg.caption || msg.content) && (
+                                  <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
+                                    {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
                                   </p>
-                                  <p className="text-xs opacity-70 truncate">
-                                    {msg.media_mimetype || 'Desconhecido'}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex gap-2 mt-1">
-                                <Button size="sm" className="flex-1 h-8 text-xs" asChild>
-                                  <a
-                                    href={getMediaUrl(msg)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    download
-                                  >
-                                    <Download className="w-3 h-3 mr-1.5" /> Baixar
-                                  </a>
-                                </Button>
-                                {msg.media_mimetype === 'application/pdf' && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="flex-1 h-8 text-xs"
-                                      >
-                                        <Eye className="w-3 h-3 mr-1.5" /> Visualizar
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="max-w-5xl h-[85vh] p-0">
-                                      <iframe
-                                        src={getMediaUrl(msg)}
-                                        className="w-full h-full rounded-lg"
-                                        title="PDF Preview"
-                                      />
-                                    </DialogContent>
-                                  </Dialog>
                                 )}
                               </div>
-                              {(msg.caption || msg.content) && (
-                                <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1">
-                                  {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
-                                </p>
-                              )}
-                            </div>
-                          ) : renderType === 'sticker' ? (
-                            <img
-                              src={getMediaUrl(msg)}
-                              alt="Sticker"
-                              className="w-32 h-32 object-contain drop-shadow-sm"
-                            />
-                          ) : (
-                            <div className="flex flex-col">
-                              {(msg.link_title ||
-                                msg.link_description ||
-                                msg.link_url ||
-                                msg.link_thumbnail_b64) && (
-                                <a
-                                  href={
-                                    msg.link_url ||
-                                    msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
-                                    '#'
-                                  }
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={cn(
-                                    'block mb-2 rounded-lg border overflow-hidden transition-opacity hover:opacity-90',
-                                    msg.from_me
-                                      ? 'bg-white/10 border-white/20'
-                                      : 'bg-muted/50 border-muted',
-                                  )}
-                                >
-                                  {msg.link_thumbnail_b64 && (
-                                    <img
-                                      src={msg.link_thumbnail_b64}
-                                      alt="Link thumbnail"
-                                      className="w-full max-h-[180px] object-cover"
-                                    />
-                                  )}
-                                  <div className="p-3">
-                                    {msg.link_title && (
-                                      <h4 className="text-sm font-semibold line-clamp-2 mb-1">
-                                        {msg.link_title}
-                                      </h4>
-                                    )}
-                                    {msg.link_description && (
-                                      <p className="text-xs opacity-80 line-clamp-2 mb-2">
-                                        {msg.link_description}
-                                      </p>
-                                    )}
-                                    <span className="text-[10px] opacity-60 uppercase tracking-wider">
-                                      {
-                                        (
-                                          msg.link_url ||
-                                          msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
-                                          ''
-                                        )
-                                          .replace(/^https?:\/\/(www\.)?/, '')
-                                          .split('/')[0]
-                                      }
-                                    </span>
+                            ) : renderType === 'video' ? (
+                              <div className="flex flex-col gap-2">
+                                <video
+                                  src={getMediaUrl(msg)}
+                                  controls
+                                  className="max-w-full max-h-[300px] rounded-lg"
+                                />
+                                {(msg.caption || msg.content) && (
+                                  <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
+                                    {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
+                                  </p>
+                                )}
+                              </div>
+                            ) : renderType === 'audio' ? (
+                              <div className="py-2 w-full">
+                                <audio
+                                  src={getMediaUrl(msg)}
+                                  controls
+                                  className="w-full min-w-[250px] md:min-w-[300px]"
+                                />
+                              </div>
+                            ) : renderType === 'document' ? (
+                              <div className="flex flex-col gap-3 p-2 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-primary/20 text-primary rounded-lg flex items-center justify-center shrink-0">
+                                    <FileText className="w-5 h-5" />
                                   </div>
-                                </a>
-                              )}
-                              <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1.5">
-                                {renderTextWithLinks(msg.content, msg.from_me)}
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      )}
+                                  <div className="flex-1 min-w-0">
+                                    <p
+                                      className="text-sm font-semibold truncate"
+                                      title={msg.media_filename || 'Documento'}
+                                    >
+                                      {msg.media_filename || 'Documento'}
+                                    </p>
+                                    <p className="text-xs opacity-70 truncate">
+                                      {msg.media_mimetype || 'Desconhecido'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 mt-1">
+                                  <Button size="sm" className="flex-1 h-8 text-xs" asChild>
+                                    <a
+                                      href={getMediaUrl(msg)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      download
+                                    >
+                                      <Download className="w-3 h-3 mr-1.5" /> Baixar
+                                    </a>
+                                  </Button>
+                                  {msg.media_mimetype === 'application/pdf' && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="flex-1 h-8 text-xs"
+                                        >
+                                          <Eye className="w-3 h-3 mr-1.5" /> Visualizar
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-5xl h-[85vh] p-0">
+                                        <iframe
+                                          src={getMediaUrl(msg)}
+                                          className="w-full h-full rounded-lg"
+                                          title="PDF Preview"
+                                        />
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
+                                </div>
+                                {(msg.caption || msg.content) && (
+                                  <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1">
+                                    {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
+                                  </p>
+                                )}
+                              </div>
+                            ) : renderType === 'sticker' ? (
+                              <img
+                                src={getMediaUrl(msg)}
+                                alt="Sticker"
+                                className="w-32 h-32 object-contain drop-shadow-sm"
+                              />
+                            ) : (
+                              <div className="flex flex-col">
+                                {(msg.link_title ||
+                                  msg.link_description ||
+                                  msg.link_url ||
+                                  msg.link_thumbnail_b64) && (
+                                  <a
+                                    href={
+                                      msg.link_url ||
+                                      msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
+                                      '#'
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={cn(
+                                      'block mb-2 rounded-lg border overflow-hidden transition-opacity hover:opacity-90',
+                                      msg.from_me
+                                        ? 'bg-white/10 border-white/20'
+                                        : 'bg-muted/50 border-muted',
+                                    )}
+                                  >
+                                    {msg.link_thumbnail_b64 && (
+                                      <img
+                                        src={msg.link_thumbnail_b64}
+                                        alt="Link thumbnail"
+                                        className="w-full max-h-[180px] object-cover"
+                                      />
+                                    )}
+                                    <div className="p-3">
+                                      {msg.link_title && (
+                                        <h4 className="text-sm font-semibold line-clamp-2 mb-1">
+                                          {msg.link_title}
+                                        </h4>
+                                      )}
+                                      {msg.link_description && (
+                                        <p className="text-xs opacity-80 line-clamp-2 mb-2">
+                                          {msg.link_description}
+                                        </p>
+                                      )}
+                                      <span className="text-[10px] opacity-60 uppercase tracking-wider">
+                                        {
+                                          (
+                                            msg.link_url ||
+                                            msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
+                                            ''
+                                          )
+                                            .replace(/^https?:\/\/(www\.)?/, '')
+                                            .split('/')[0]
+                                        }
+                                      </span>
+                                    </div>
+                                  </a>
+                                )}
+                                <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1.5">
+                                  {renderTextWithLinks(msg.content, msg.from_me)}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
 
-                      {renderType !== 'sticker' && (
-                        <span
-                          className={cn(
-                            'text-[10px] mt-1 block text-right font-medium px-1.5 pb-0.5',
-                            msg.from_me ? 'text-white/70' : 'text-muted-foreground',
-                          )}
-                        >
+                        {renderType !== 'sticker' && (
+                          <span
+                            className={cn(
+                              'text-[10px] mt-1 block text-right font-medium px-1.5 pb-0.5',
+                              msg.from_me ? 'text-white/70' : 'text-muted-foreground',
+                            )}
+                          >
+                            {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        )}
+                      </div>
+
+                      {renderType === 'sticker' && !msg.from_me && (
+                        <span className="text-[10px] mt-auto ml-2 mb-2 text-muted-foreground font-medium shrink-0">
                           {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -990,15 +1036,6 @@ export default function Conversas() {
                         </span>
                       )}
                     </div>
-
-                    {renderType === 'sticker' && !msg.from_me && (
-                      <span className="text-[10px] mt-auto ml-2 mb-2 text-muted-foreground font-medium shrink-0">
-                        {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    )}
                   </div>
                 )
               })}
