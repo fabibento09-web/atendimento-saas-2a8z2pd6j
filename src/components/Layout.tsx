@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, Navigate } from 'react-router-dom'
 import { MessageSquare, LayoutDashboard, Tags, Bell, Search, LogOut } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import {
   SidebarProvider,
   Sidebar,
@@ -145,7 +146,12 @@ export function Layout() {
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-4 md:p-6 bg-noise bg-opacity-10 relative">
+        <main
+          className={cn(
+            'flex-1 overflow-auto bg-noise bg-opacity-10 relative',
+            location.pathname.startsWith('/conversas') ? 'p-0' : 'p-4 md:p-6',
+          )}
+        >
           <Outlet />
         </main>
       </SidebarInset>
