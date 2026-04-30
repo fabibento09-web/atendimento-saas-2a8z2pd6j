@@ -187,41 +187,78 @@ export default function Conversas() {
     }
   }, [showMediaModal])
 
-  useRealtime('whatsapp_instances', (e) => {
-    if (e.record.user_id === user?.id) {
-      loadInstances()
-    }
+  useRealtime(
+    'whatsapp_instances',
+    (e) => {
+      if (e.record.user_id === user?.id) {
+        loadInstances()
+      }
+    },
+    true,
+    loadInstances,
+  )
+
+  useRealtime(
+    'whatsapp_messages',
+    (e) => {
+      if (!activeInstance || activeInstance.status !== 'connected') return
+      if (e.action === 'create') {
+        const newMsg = e.record
+        if (newMsg.instance_name === activeInstance.instance_name) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev
+            return [...prev, newMsg]
+          })
+        }
+      } else {
+        loadMessages()
+      }
+    },
+    true,
+    loadMessages,
+  )
+
+  useRealtime(
+    'conversations',
+    (e) => {
+      if (!activeInstance || activeInstance.status !== 'connected') return
+      if (e.record.instance_name === activeInstance.instance_name) {
+        if (e.action === 'create' || e.action === 'update') {
+          setConversationsMeta((prev) => {
+            const exists = prev.find((m) => m.id === e.record.id)
+            if (exists) return prev.map((m) => (m.id === e.record.id ? e.record : m))
+            return [...prev, e.record]
+          })
+        } else if (e.action === 'delete') {
+          setConversationsMeta((prev) => prev.filter((m) => m.id !== e.record.id))
+        }
+      }
+    },
+    true,
+    loadConversationsMeta,
+  )
+
+  const loadFnsRef = useRef({ loadMessages, loadConversationsMeta })
+  useEffect(() => {
+    loadFnsRef.current = { loadMessages, loadConversationsMeta }
   })
 
-  useRealtime('whatsapp_messages', (e) => {
-    if (!activeInstance || activeInstance.status !== 'connected') return
-    if (e.action === 'create') {
-      const newMsg = e.record
-      if (newMsg.instance_name === activeInstance.instance_name) {
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMsg.id)) return prev
-          return [...prev, newMsg]
-        })
-      }
-    } else {
-      loadMessages()
+  useEffect(() => {
+    let focusTimeout: ReturnType<typeof setTimeout>
+    const handleFocus = () => {
+      clearTimeout(focusTimeout)
+      focusTimeout = setTimeout(() => {
+        loadFnsRef.current.loadMessages()
+        loadFnsRef.current.loadConversationsMeta()
+      }, 500)
     }
-  })
 
-  useRealtime('conversations', (e) => {
-    if (!activeInstance || activeInstance.status !== 'connected') return
-    if (e.record.instance_name === activeInstance.instance_name) {
-      if (e.action === 'create' || e.action === 'update') {
-        setConversationsMeta((prev) => {
-          const exists = prev.find((m) => m.id === e.record.id)
-          if (exists) return prev.map((m) => (m.id === e.record.id ? e.record : m))
-          return [...prev, e.record]
-        })
-      } else if (e.action === 'delete') {
-        setConversationsMeta((prev) => prev.filter((m) => m.id !== e.record.id))
-      }
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      clearTimeout(focusTimeout)
+      window.removeEventListener('focus', handleFocus)
     }
-  })
+  }, [])
 
   useEffect(() => {
     let interval: any
