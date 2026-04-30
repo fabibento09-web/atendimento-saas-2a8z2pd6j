@@ -30,6 +30,7 @@ routerAdd(
     }
 
     const { processIncomingMessage } = require(`${__hooks}/_lib/process_message.js`)
+    const { fetchMessagesPage } = require(`${__hooks}/_lib/evolution_client.js`)
 
     try {
       $app.logger().info('initial_sync_start', 'instance', instanceName)
@@ -90,29 +91,9 @@ routerAdd(
       for (const chat of validChats) {
         try {
           for (let page = 1; page <= 5; page++) {
-            const bodyReq = {
-              where: { key: { remoteJid: chat.id } },
-              limit: 200,
-              page: page,
-            }
+            const res = fetchMessagesPage(instanceName, chat.id, page)
 
-            const msgUrl =
-              evolutionUrl.replace(/\/$/, '') +
-              '/chat/findMessages/' +
-              encodeURIComponent(instanceName)
-
-            const msgRes = $http.send({
-              url: msgUrl,
-              method: 'POST',
-              headers: {
-                apikey: evolutionKey,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(bodyReq),
-              timeout: 30,
-            })
-
-            if (msgRes.statusCode === 401 || msgRes.statusCode === 403) {
+            if (res.statusCode === 401 || res.statusCode === 403) {
               const failures = instance.getInt('auth_failure_count') + 1
               instance.set('auth_failure_count', failures)
               if (failures >= 3) {
@@ -139,24 +120,18 @@ routerAdd(
               }
               $app.save(instance)
               break
-            } else if (msgRes.statusCode === 200) {
+            } else if (res.statusCode === 200) {
               if (instance.getInt('auth_failure_count') > 0) {
                 instance.set('auth_failure_count', 0)
                 $app.save(instance)
               }
             }
 
-            if (msgRes.statusCode !== 200) {
+            if (res.statusCode !== 200) {
               break
             }
 
-            const msgData = msgRes.json || {}
-            let records = []
-            if (Array.isArray(msgData)) records = msgData
-            else if (msgData.records) records = msgData.records
-            else if (msgData.messages && msgData.messages.records)
-              records = msgData.messages.records
-            else if (msgData.messages && Array.isArray(msgData.messages)) records = msgData.messages
+            const records = res.messages
 
             if (records.length === 0) {
               break

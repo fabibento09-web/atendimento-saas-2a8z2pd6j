@@ -19,6 +19,7 @@ cronAdd('whatsapp_initial_sync', '*/30 * * * * *', () => {
   if (instances.length === 0) return
 
   const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
+  const { fetchMessagesPage } = require(`${__hooks}/_lib/evolution_client.js`)
 
   for (const instance of instances) {
     const instanceName = instance.getString('instance_name')
@@ -159,20 +160,9 @@ cronAdd('whatsapp_initial_sync', '*/30 * * * * *', () => {
               let page = 1
 
               while (hasMore && page <= 5) {
-                const msgRes = $http.send({
-                  url: `${baseUrl}/chat/findMessages/${instanceName}`,
-                  method: 'POST',
-                  headers: { apikey: apiKey, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    where: { key: { remoteJid: chat.id } },
-                    limit: 200,
-                    page: page,
-                    offset: (page - 1) * 200,
-                  }),
-                  timeout: 30,
-                })
+                const res = fetchMessagesPage(instanceName, chat.id, page)
 
-                if (msgRes.statusCode === 401 || msgRes.statusCode === 403) {
+                if (res.statusCode === 401 || res.statusCode === 403) {
                   const failures = instance.getInt('auth_failure_count') + 1
                   instance.set('auth_failure_count', failures)
                   if (failures >= 3) {
@@ -199,25 +189,18 @@ cronAdd('whatsapp_initial_sync', '*/30 * * * * *', () => {
                   }
                   $app.save(instance)
                   break
-                } else if (msgRes.statusCode === 200) {
+                } else if (res.statusCode === 200) {
                   if (instance.getInt('auth_failure_count') > 0) {
                     instance.set('auth_failure_count', 0)
                     $app.save(instance)
                   }
                 }
 
-                if (msgRes.statusCode !== 200 || !msgRes.json) {
+                if (res.statusCode !== 200) {
                   break
                 }
 
-                let messages = []
-                const rJson = msgRes.json
-                if (Array.isArray(rJson)) messages = rJson
-                else if (Array.isArray(rJson.records)) messages = rJson.records
-                else if (rJson.messages) {
-                  if (Array.isArray(rJson.messages)) messages = rJson.messages
-                  else if (Array.isArray(rJson.messages.records)) messages = rJson.messages.records
-                }
+                const messages = res.messages
 
                 if (!messages || messages.length === 0) {
                   hasMore = false
@@ -302,6 +285,7 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
     }
 
     const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
+    const { fetchMessagesPage } = require(`${__hooks}/_lib/evolution_client.js`)
 
     for (const instance of instances) {
       const instanceName = instance.getString('instance_name')
@@ -396,37 +380,9 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
         let hasMore = true
 
         while (page <= maxPages && hasMore) {
-          let msgsRes
-          try {
-            msgsRes = $http.send({
-              url: `${baseUrl}/chat/findMessages/${instanceName}`,
-              method: 'POST',
-              headers: { apikey: apiKey, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                where: {
-                  key: { remoteJid: remoteJid },
-                },
-                limit: 200,
-                page: page,
-              }),
-              timeout: 30,
-            })
-          } catch (err) {
-            $app
-              .logger()
-              .error(
-                'whatsapp_gap_fill: Failed to fetch messages',
-                'chat',
-                remoteJid,
-                'page',
-                page,
-                'error',
-                err.message,
-              )
-            break
-          }
+          const res = fetchMessagesPage(instanceName, remoteJid, page)
 
-          if (msgsRes.statusCode === 401 || msgsRes.statusCode === 403) {
+          if (res.statusCode === 401 || res.statusCode === 403) {
             const failures = instance.getInt('auth_failure_count') + 1
             instance.set('auth_failure_count', failures)
             if (failures >= 3) {
@@ -454,28 +410,15 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
             $app.save(instance)
             hasMore = false
             break
-          } else if (msgsRes.statusCode === 200) {
+          } else if (res.statusCode === 200) {
             if (instance.getInt('auth_failure_count') > 0) {
               instance.set('auth_failure_count', 0)
               $app.save(instance)
             }
           }
 
-          if (msgsRes.statusCode === 200 && msgsRes.json) {
-            let messages = []
-            if (Array.isArray(msgsRes.json)) {
-              messages = msgsRes.json
-            } else if (msgsRes.json.records && Array.isArray(msgsRes.json.records)) {
-              messages = msgsRes.json.records
-            } else if (
-              msgsRes.json.messages &&
-              msgsRes.json.messages.records &&
-              Array.isArray(msgsRes.json.messages.records)
-            ) {
-              messages = msgsRes.json.messages.records
-            } else if (msgsRes.json.messages && Array.isArray(msgsRes.json.messages)) {
-              messages = msgsRes.json.messages
-            }
+          if (res.statusCode === 200) {
+            const messages = res.messages
 
             if (messages.length === 0) {
               hasMore = false
