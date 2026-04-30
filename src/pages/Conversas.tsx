@@ -24,6 +24,7 @@ import {
   StickyNote,
   UserPlus,
   Check,
+  RefreshCw,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -68,6 +69,7 @@ export default function Conversas() {
   const [isMobileViewChat, setIsMobileViewChat] = useState(false)
   const [search, setSearch] = useState('')
   const [qrCode, setQrCode] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [fileToken, setFileToken] = useState<string>('')
@@ -248,8 +250,8 @@ export default function Conversas() {
     const handleFocus = () => {
       clearTimeout(focusTimeout)
       focusTimeout = setTimeout(() => {
-        loadFnsRef.current.loadMessages()
-        loadFnsRef.current.loadConversationsMeta()
+        loadFnsRef.current.loadMessages().catch((err) => console.error(err))
+        loadFnsRef.current.loadConversationsMeta().catch((err) => console.error(err))
       }, 500)
     }
 
@@ -259,6 +261,34 @@ export default function Conversas() {
       window.removeEventListener('focus', handleFocus)
     }
   }, [])
+
+  useEffect(() => {
+    if (!activeInstance || activeInstance.status !== 'connected') return
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        Promise.all([
+          loadFnsRef.current.loadMessages(),
+          loadFnsRef.current.loadConversationsMeta(),
+        ]).catch((err) => console.error('Background polling error:', err))
+      }
+    }, 20000)
+
+    return () => clearInterval(interval)
+  }, [activeInstance?.status, activeInstance?.instance_name])
+
+  const handleManualRefresh = () => {
+    setIsRefreshing(true)
+    Promise.all([
+      loadInstances(),
+      loadFnsRef.current.loadMessages(),
+      loadFnsRef.current.loadConversationsMeta(),
+    ]).catch((err) => console.error('Manual refresh error:', err))
+
+    setTimeout(() => {
+      setIsRefreshing(false)
+    }, 1000)
+  }
 
   useEffect(() => {
     let interval: any
@@ -667,8 +697,29 @@ export default function Conversas() {
           isMobileViewChat ? 'hidden md:flex' : 'flex',
         )}
       >
+        <div className="p-3 border-b border-brand-cream-dark flex gap-2 items-center shrink-0 bg-white/90">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar conversa..."
+              className="pl-9 h-9 bg-brand-cream/30 border-brand-cream-dark focus-visible:ring-brand-primary/50 text-sm"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0 text-brand-muted hover:text-brand-primary shadow-sm"
+            onClick={handleManualRefresh}
+            title="Atualizar conversas"
+          >
+            <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+          </Button>
+        </div>
         <ScrollArea className="flex-1">
           <div className="divide-y divide-brand-cream-dark">
+            {' '}
             {conversations.length === 0 && search === '' ? emptyState : null}
             {filteredConversations.length === 0 && search !== '' ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
