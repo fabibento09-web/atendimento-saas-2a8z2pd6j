@@ -86,11 +86,11 @@ routerAdd(
       }
     }
 
+    // Retorno único e correto baseado na resposta da Evolution
     let responseData = {}
     if (res.json) {
       responseData = res.json
     }
-
     return e.json(res.statusCode || 200, responseData)
   },
   $apis.requireAuth(),
