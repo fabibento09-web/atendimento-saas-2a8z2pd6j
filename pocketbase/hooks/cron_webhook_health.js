@@ -61,7 +61,11 @@ cronAdd('webhook_health_check', '*/10 * * * *', () => {
         // Handle different Evolution API response structures
         const webhookData = data.webhook || data
 
-        if (!webhookData.enabled) {
+        // v2 has no `enabled` field — presence of URL means enabled.
+        // v1 had `enabled` boolean, so accept either signal.
+        const isEnabled = webhookData.enabled !== false && !!webhookData.url
+
+        if (!isEnabled) {
           needsUpdate = true
         } else if (webhookData.url !== webhookUrl) {
           needsUpdate = true

@@ -29,147 +29,108 @@ routerAdd(
       throw new InternalServerError('Evolution API configuration missing')
     }
 
-    const runSync = async () => {
-      try {
-        $app.logger().info('initial_sync_start', 'instance', instanceName)
+    const baseUrl = evolutionUrl.endsWith('/') ? evolutionUrl.slice(0, -1) : evolutionUrl
+    const processIncomingMessage = require(`${__hooks}/_lib/process_message.js`)
 
-        const chatsUrl =
-          evolutionUrl.replace(/\/$/, '') + '/chat/findChats/' + encodeURIComponent(instanceName)
-        const chatsRes = await fetch(chatsUrl, {
-          headers: { apikey: evolutionKey },
-          idleTimeout: 30,
+    setTimeout(() => {
+      try {
+        $app.logger().info('resync_start', 'instance', instanceName)
+
+        const chatsRes = $http.send({
+          url: `${baseUrl}/chat/findChats/${instanceName}`,
+          method: 'POST',
+          headers: { apikey: evolutionKey, 'Content-Type': 'application/json' },
+          body: '{}',
+          timeout: 30,
         })
 
-        if (!chatsRes.ok) {
-          throw new Error('Failed to fetch chats: ' + chatsRes.status)
+        if (chatsRes.statusCode !== 200 || !chatsRes.json) {
+          $app
+            .logger()
+            .error(
+              'resync: failed to fetch chats',
+              'instance',
+              instanceName,
+              'status',
+              chatsRes.statusCode,
+            )
+          return
         }
 
-        const chatsData = await chatsRes.json()
-        const chatsList = Array.isArray(chatsData) ? chatsData : chatsData.records || []
-        const validChats = chatsList.filter((c) => c.id && c.id.includes('@'))
+        let chatsList = []
+        const cJson = chatsRes.json
+        if (Array.isArray(cJson)) chatsList = cJson
+        else if (Array.isArray(cJson.records)) chatsList = cJson.records
+        else if (cJson.chats && Array.isArray(cJson.chats)) chatsList = cJson.chats
+        else if (cJson.chats && Array.isArray(cJson.chats.records)) chatsList = cJson.chats.records
+
+        const validChats = chatsList
+          .map((c) => ({ ...c, _jid: c.remoteJid || c.id || '' }))
+          .filter((c) => c._jid && c._jid.includes('@'))
 
         let totalMessages = 0
 
         for (const chat of validChats) {
           try {
             let hasMore = true
-            let page = 0
+            let page = 1
 
-            while (hasMore && page < 5) {
-              const bodyReq = {
-                where: { key: { remoteJid: chat.id } },
-                limit: 200,
-                offset: page * 200,
-              }
-
-              const msgUrl =
-                evolutionUrl.replace(/\/$/, '') +
-                '/chat/findMessages/' +
-                encodeURIComponent(instanceName)
-              const msgRes = await fetch(msgUrl, {
+            while (hasMore && page <= 5) {
+              const msgRes = $http.send({
+                url: `${baseUrl}/chat/findMessages/${instanceName}`,
                 method: 'POST',
-                headers: {
-                  apikey: evolutionKey,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(bodyReq),
-                idleTimeout: 30,
+                headers: { apikey: evolutionKey, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  where: { key: { remoteJid: chat._jid } },
+                  limit: 200,
+                  page: page,
+                }),
+                timeout: 30,
               })
 
-              if (!msgRes.ok) {
+              if (msgRes.statusCode !== 200 || !msgRes.json) {
                 break
               }
 
-              const msgData = await msgRes.json()
-              let records = []
-              if (Array.isArray(msgData)) records = msgData
-              else if (msgData.records) records = msgData.records
-              else if (msgData.messages && msgData.messages.records)
-                records = msgData.messages.records
-              else if (msgData.messages && Array.isArray(msgData.messages))
-                records = msgData.messages
+              let messages = []
+              const rJson = msgRes.json
+              if (Array.isArray(rJson)) messages = rJson
+              else if (Array.isArray(rJson.records)) messages = rJson.records
+              else if (rJson.messages) {
+                if (Array.isArray(rJson.messages.records)) messages = rJson.messages.records
+                else if (Array.isArray(rJson.messages)) messages = rJson.messages
+              }
 
-              if (records.length === 0) {
+              if (messages.length === 0) {
+                hasMore = false
                 break
               }
 
-              for (const msg of records) {
-                if (!msg.key || !msg.key.id) continue
-
-                const msgId = msg.key.id
-                const jid = msg.key.remoteJid || chat.id
-
+              for (const msg of messages) {
                 try {
-                  $app.findFirstRecordByFilter(
-                    'whatsapp_messages',
-                    'instance_name = {:instanceName} && message_id = {:msgId}',
-                    { instanceName, msgId },
-                  )
-                  continue
-                } catch (err) {}
-
-                const fromMe = msg.key.fromMe || false
-                let content =
-                  msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
-                if (!content && msg.message?.imageMessage) content = '📷 Imagem'
-                if (!content && msg.message?.videoMessage) content = '🎥 Vídeo'
-                if (!content && msg.message?.documentMessage) content = '📄 Documento'
-                if (!content && msg.message?.audioMessage) content = '🎵 Áudio'
-                if (!content && msg.message?.stickerMessage) content = '✨ Sticker'
-
-                const msgType = Object.keys(msg.message || {})[0] || 'conversation'
-                const ts = Number(msg.messageTimestamp) || Math.floor(Date.now() / 1000)
-
-                const newMsg = new Record($app.findCollectionByNameOrId('whatsapp_messages'))
-                newMsg.set('instance_name', instanceName)
-                newMsg.set('remote_jid', jid)
-                newMsg.set('from_me', fromMe)
-                newMsg.set('message_id', msgId)
-                newMsg.set('push_name', msg.pushName || '')
-                newMsg.set('content', content)
-                newMsg.set('message_type', msgType)
-                newMsg.set('timestamp', ts)
-                newMsg.set('participant_jid', msg.key.participant || '')
-
-                $app.save(newMsg)
-                totalMessages++
-
-                try {
-                  const conv = $app.findFirstRecordByFilter(
-                    'conversations',
-                    'instance_name = {:instanceName} && remote_jid = {:jid}',
-                    { instanceName, jid },
-                  )
-                  conv.set('last_message', content)
-                  $app.save(conv)
-                } catch (err) {
-                  const newConv = new Record($app.findCollectionByNameOrId('conversations'))
-                  newConv.set('instance_name', instanceName)
-                  newConv.set('remote_jid', jid)
-                  newConv.set('user_id', userId)
-                  newConv.set('is_group', jid.includes('@g.us'))
-                  newConv.set('type', jid.includes('@g.us') ? 'group' : 'individual')
-                  newConv.set('contact_name', msg.pushName || jid)
-                  newConv.set('last_message', content)
-                  newConv.set('unread_count', 0)
-                  $app.save(newConv)
+                  const res = processIncomingMessage(instanceName, msg)
+                  if (res && res.status === 'success') totalMessages++
+                } catch (_) {
+                  // ignore individual msg failure
                 }
               }
 
-              if (records.length < 200) {
-                break
+              if (messages.length < 200) {
+                hasMore = false
               }
               page++
             }
           } catch (chatErr) {
-            $app.logger().error('resync_chat_err', 'chatId', chat.id, 'error', String(chatErr))
+            $app
+              .logger()
+              .warn('resync: chat failed', 'chat', chat._jid, 'error', chatErr.message)
           }
         }
 
         $app
           .logger()
           .info(
-            'initial_sync',
+            'resync_done',
             'instance',
             instanceName,
             'chats',
@@ -178,11 +139,9 @@ routerAdd(
             totalMessages,
           )
       } catch (err) {
-        $app.logger().error('resync_err', 'instance', instanceName, 'error', String(err))
+        $app.logger().error('resync_err', 'instance', instanceName, 'error', err.message)
       }
-    }
-
-    runSync()
+    }, 0)
 
     return e.json(200, { success: true, message: 'Sync started' })
   },

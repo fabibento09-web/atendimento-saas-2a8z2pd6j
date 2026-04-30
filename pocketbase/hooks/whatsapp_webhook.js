@@ -81,8 +81,9 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
                 try {
                   const chatRes = $http.send({
                     url: `${baseUrl}/chat/findChats/${instanceName}`,
-                    method: 'GET',
-                    headers: { apikey: apiKey },
+                    method: 'POST',
+                    headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+                    body: '{}',
                     timeout: 30,
                   })
 
@@ -95,7 +96,9 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
                       chats = cJson.chats.records
                     else if (cJson.chats && Array.isArray(cJson.chats)) chats = cJson.chats
 
-                    chats = chats.filter((c) => c.id && c.id.includes('@'))
+                    chats = chats
+                      .map((c) => ({ ...c, _jid: c.remoteJid || c.id || '' }))
+                      .filter((c) => c._jid && c._jid.includes('@'))
                     let totalMessagesSynced = 0
 
                     for (const chat of chats) {
@@ -109,10 +112,9 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
                             method: 'POST',
                             headers: { apikey: apiKey, 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                              where: { key: { remoteJid: chat.id } },
+                              where: { key: { remoteJid: chat._jid } },
                               limit: 200,
                               page: page,
-                              offset: (page - 1) * 200,
                             }),
                             timeout: 30,
                           })
@@ -156,7 +158,7 @@ routerAdd('POST', '/backend/v1/whatsapp/webhook', (e) => {
                           .warn(
                             'Failed to sync history for chat',
                             'chat',
-                            chat.id,
+                            chat._jid,
                             'error',
                             chatErr.message,
                           )

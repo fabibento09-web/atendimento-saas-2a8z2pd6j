@@ -27,7 +27,6 @@ routerAdd(
       rejectCall: true,
       alwaysOnline: true,
       webhook: {
-        enabled: true,
         url: webhookUrl,
         byEvents: false,
         base64: true,

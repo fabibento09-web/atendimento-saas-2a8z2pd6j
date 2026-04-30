@@ -34,8 +34,9 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
       try {
         chatsRes = $http.send({
           url: `${baseUrl}/chat/findChats/${instanceName}`,
-          method: 'GET',
-          headers: { apikey: apiKey },
+          method: 'POST',
+          headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+          body: '{}',
           timeout: 15,
         })
       } catch (err) {
@@ -64,7 +65,7 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
         continue
       }
 
-      if (chatsRes.statusCode !== 200 || !Array.isArray(chatsRes.json)) {
+      if (chatsRes.statusCode !== 200 || !chatsRes.json) {
         $app
           .logger()
           .warn(
@@ -77,9 +78,15 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
         continue
       }
 
-      for (const chat of chatsRes.json) {
-        if (!chat.id || (!chat.id.includes('@') && !chat.id.endsWith('@lid'))) continue
-        const remoteJid = chat.id
+      let chatsList = []
+      if (Array.isArray(chatsRes.json)) chatsList = chatsRes.json
+      else if (Array.isArray(chatsRes.json.records)) chatsList = chatsRes.json.records
+      else if (chatsRes.json.chats && Array.isArray(chatsRes.json.chats)) chatsList = chatsRes.json.chats
+      else if (chatsRes.json.chats && Array.isArray(chatsRes.json.chats.records)) chatsList = chatsRes.json.chats.records
+
+      for (const chat of chatsList) {
+        const remoteJid = chat.remoteJid || chat.id || ''
+        if (!remoteJid || !remoteJid.includes('@')) continue
 
         let maxTimestamp = 0
         try {
