@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle2, QrCode, RefreshCw, Loader2 } from 'lucide-react'
+import { CheckCircle2, QrCode, RefreshCw, Loader2, Monitor } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
 import {
   createWhatsAppInstanceApi,
@@ -19,17 +20,16 @@ import whatsappGlassUrl from '@/assets/whatsapp_glass_v3_final-39a9f.png'
 function StepCard({ stepNum, currentStep, title, icon, children, description }: any) {
   const isActive = stepNum === currentStep
   const isPast = stepNum < currentStep
-  const isFuture = stepNum > currentStep
 
   return (
     <Card
       className={cn(
         'transition-all duration-500 relative overflow-hidden border backdrop-blur-xl',
         isActive
-          ? 'border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.2)] scale-[1.03] z-10 bg-white/95'
+          ? 'border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.2)] scale-[1.03] z-10 bg-white/95 block'
           : isPast
-            ? 'border-white/40 bg-white/80 scale-100 opacity-95'
-            : 'border-white/20 bg-white/60 scale-100 opacity-80',
+            ? 'border-white/40 bg-white/80 scale-100 opacity-95 hidden md:block'
+            : 'border-white/20 bg-white/60 scale-100 opacity-80 hidden md:block',
       )}
     >
       <CardHeader className="pb-4">
@@ -124,6 +124,7 @@ export default function Index() {
   const [progress, setProgress] = useState(0)
   const navigate = useNavigate()
   const { signIn, signUp, user, loading: authLoading } = useAuth()
+  const isMobile = useIsMobile()
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -302,7 +303,7 @@ export default function Index() {
         </p>
       </div>
 
-      <div className="max-w-[1000px] w-full grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start relative z-10">
+      <div className="max-w-[1000px] w-full grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-start relative z-10">
         <StepCard
           stepNum={1}
           currentStep={step}
@@ -371,45 +372,69 @@ export default function Index() {
         <StepCard
           stepNum={2}
           currentStep={step}
-          title="Conectar WhatsApp"
-          description="Escaneie para vincular"
-          icon={<QrCode className="w-5 h-5" />}
+          title={isMobile ? 'Acesso pelo Computador' : 'Conectar WhatsApp'}
+          description={isMobile ? 'Requer uso do desktop' : 'Escaneie para vincular'}
+          icon={isMobile ? <Monitor className="w-5 h-5" /> : <QrCode className="w-5 h-5" />}
         >
-          <div className="flex flex-col items-center justify-center space-y-6 py-4">
-            <div
-              className={cn(
-                'p-2 bg-white rounded-xl border border-dashed border-[#C8CCBE] transition-all flex items-center justify-center w-[200px] h-[200px]',
-                step !== 2 && 'opacity-50 grayscale',
-              )}
-            >
-              {qrCodeBase64 ? (
-                <img
-                  src={
-                    qrCodeBase64.startsWith('data:image')
-                      ? qrCodeBase64
-                      : `data:image/png;base64,${qrCodeBase64}`
-                  }
-                  alt="QR Code"
-                  className="w-full h-full object-contain"
-                />
-              ) : step === 2 && !apiError ? (
-                <Loader2 className="w-8 h-8 animate-spin text-[#0f3b21]" />
-              ) : (
-                <QrCode className="w-16 h-16 text-black/10" />
-              )}
+          {isMobile ? (
+            <div className="flex flex-col items-center justify-center space-y-6 py-8">
+              <div className="w-20 h-20 bg-[#0f3b21]/10 rounded-full flex items-center justify-center mb-2 shadow-inner">
+                <Monitor className="w-10 h-10 text-[#0f3b21]" />
+              </div>
+              <div className="space-y-3 text-center px-2">
+                <p className="text-[#1a4a2b] font-semibold text-lg leading-tight">
+                  Acesse pelo computador para conectar seu WhatsApp
+                </p>
+                <p className="text-sm text-[#5A6B5A] leading-relaxed">
+                  Para escanear o QR Code, você precisa abrir esta página no seu computador e usar o
+                  WhatsApp do seu celular.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-black/40 pt-4">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Aguardando conexão...
+              </div>
             </div>
-            {apiError && (
-              <p className="text-xs text-center text-destructive bg-destructive/10 p-2 rounded-md w-full">
-                {apiError}
+          ) : (
+            <div className="flex flex-col items-center justify-center space-y-6 py-4">
+              <div
+                className={cn(
+                  'p-2 bg-white rounded-xl border border-dashed border-[#C8CCBE] transition-all flex items-center justify-center w-[200px] h-[200px]',
+                  step !== 2 && 'opacity-50 grayscale',
+                )}
+              >
+                {qrCodeBase64 ? (
+                  <img
+                    src={
+                      qrCodeBase64.startsWith('data:image')
+                        ? qrCodeBase64
+                        : `data:image/png;base64,${qrCodeBase64}`
+                    }
+                    alt="QR Code"
+                    className="w-full h-full object-contain"
+                  />
+                ) : step === 2 && !apiError ? (
+                  <Loader2 className="w-8 h-8 animate-spin text-[#0f3b21]" />
+                ) : (
+                  <QrCode className="w-16 h-16 text-black/10" />
+                )}
+              </div>
+              {apiError && (
+                <p className="text-xs text-center text-destructive bg-destructive/10 p-2 rounded-md w-full">
+                  {apiError}
+                </p>
+              )}
+              <p
+                className={cn(
+                  'text-sm text-center',
+                  step === 2 ? 'text-[#5A6B5A]' : 'text-black/40',
+                )}
+              >
+                Abra o WhatsApp no seu celular, acesse "Aparelhos Conectados" e aponte a câmera para
+                o código.
               </p>
-            )}
-            <p
-              className={cn('text-sm text-center', step === 2 ? 'text-[#5A6B5A]' : 'text-black/40')}
-            >
-              Abra o WhatsApp no seu celular, acesse "Aparelhos Conectados" e aponte a câmera para o
-              código.
-            </p>
-          </div>
+            </div>
+          )}
         </StepCard>
 
         <StepCard
