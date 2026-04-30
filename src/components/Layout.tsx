@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation, Navigate } from 'react-router-dom'
 import { MessageSquare, Search, LogOut, Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/use-auth'
+import pb from '@/lib/pocketbase/client'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -136,8 +137,9 @@ function TopNav() {
                   className="relative h-10 w-10 rounded-full p-0 hover:bg-black/5"
                 >
                   <Avatar className="h-8 w-8 border border-[#E3E5D9] shadow-sm">
-                    {user?.avatar && <AvatarImage src={user.avatar} />}
+                    {user?.avatar && <AvatarImage src={pb.files.getURL(user, user.avatar)} />}
                     <AvatarFallback className="bg-[#0f3b21]/10 text-[#0f3b21] font-serif font-bold text-xs">
+                      {' '}
                       {user?.name?.substring(0, 2).toUpperCase() ||
                         user?.email?.substring(0, 2).toUpperCase()}
                     </AvatarFallback>

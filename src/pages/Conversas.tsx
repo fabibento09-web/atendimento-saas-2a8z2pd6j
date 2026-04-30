@@ -352,7 +352,7 @@ export default function Conversas() {
 
         let avatarUrl = null
         if (meta && meta.avatar) {
-          avatarUrl = pb.files.getUrl(meta, meta.avatar)
+          avatarUrl = pb.files.getURL(meta, meta.avatar)
         } else if (meta?.avatar_url && meta.avatar_url !== 'none') {
           avatarUrl = meta.avatar_url
         }
@@ -680,10 +680,13 @@ export default function Conversas() {
 
   const getMediaUrl = (msg: any) => {
     if (msg.media_file) {
-      const collection = msg.collectionId || msg.collectionName || 'whatsapp_messages'
-      const baseUrl = pb.baseUrl.replace(/\/$/, '')
-      const url = `${baseUrl}/api/files/${collection}/${msg.id}/${msg.media_file}`
-      return fileToken ? `${url}?token=${fileToken}` : url
+      const record = {
+        ...msg,
+        collectionId: msg.collectionId || msg.collectionName || 'whatsapp_messages',
+      }
+      return fileToken
+        ? pb.files.getURL(record, msg.media_file, { token: fileToken })
+        : pb.files.getURL(record, msg.media_file)
     }
     return msg.media_url || ''
   }

@@ -78,7 +78,7 @@ export default function CRM() {
   }
 
   const getAvatarUrl = (c: any) => {
-    if (c.avatar_file) return pb.files.getUrl(c, c.avatar_file)
+    if (c.avatar_file) return pb.files.getURL(c, c.avatar_file)
     return c.avatar_url
   }
 
