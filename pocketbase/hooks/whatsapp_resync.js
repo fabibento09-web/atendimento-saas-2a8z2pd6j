@@ -121,9 +121,7 @@ routerAdd(
               page++
             }
           } catch (chatErr) {
-            $app
-              .logger()
-              .warn('resync: chat failed', 'chat', chat._jid, 'error', chatErr.message)
+            $app.logger().warn('resync: chat failed', 'chat', chat._jid, 'error', chatErr.message)
           }
         }
 

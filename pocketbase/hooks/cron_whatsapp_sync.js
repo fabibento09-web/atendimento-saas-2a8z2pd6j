@@ -81,8 +81,10 @@ cronAdd('whatsapp_gap_fill', '*/1 * * * *', () => {
       let chatsList = []
       if (Array.isArray(chatsRes.json)) chatsList = chatsRes.json
       else if (Array.isArray(chatsRes.json.records)) chatsList = chatsRes.json.records
-      else if (chatsRes.json.chats && Array.isArray(chatsRes.json.chats)) chatsList = chatsRes.json.chats
-      else if (chatsRes.json.chats && Array.isArray(chatsRes.json.chats.records)) chatsList = chatsRes.json.chats.records
+      else if (chatsRes.json.chats && Array.isArray(chatsRes.json.chats))
+        chatsList = chatsRes.json.chats
+      else if (chatsRes.json.chats && Array.isArray(chatsRes.json.chats.records))
+        chatsList = chatsRes.json.chats.records
 
       for (const chat of chatsList) {
         const remoteJid = chat.remoteJid || chat.id || ''
