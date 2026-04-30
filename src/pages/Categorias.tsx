@@ -48,8 +48,8 @@ export default function Categorias() {
   useEffect(() => {
     loadData()
   }, [user])
-  useRealtime('categories', loadData)
-  useRealtime('conversations', loadData)
+  useRealtime('categories', loadData, !!user)
+  useRealtime('conversations', loadData, !!user)
 
   const handleAdd = async () => {
     if (!newTagName.trim()) return

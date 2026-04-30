@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getCrmContacts, updateCrmContact } from '@/services/crm_contacts'
 import { useRealtime } from '@/hooks/use-realtime'
+import { useAuth } from '@/hooks/use-auth'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -25,6 +26,7 @@ const STAGES = [
 ]
 
 export default function CRM() {
+  const { user } = useAuth()
   const [contacts, setContacts] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [filterStage, setFilterStage] = useState('all')
@@ -49,9 +51,13 @@ export default function CRM() {
     loadContacts()
   }, [])
 
-  useRealtime('crm_contacts', () => {
-    loadContacts()
-  })
+  useRealtime(
+    'crm_contacts',
+    () => {
+      loadContacts()
+    },
+    !!user,
+  )
 
   const filteredContacts = contacts.filter((c) => {
     const term = search.toLowerCase()

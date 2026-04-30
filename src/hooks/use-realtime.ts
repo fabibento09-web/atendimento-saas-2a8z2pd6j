@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react'
 import pb from '@/lib/pocketbase/client'
 import type { RecordSubscription } from 'pocketbase'
-import { safeSubscribe } from '@/lib/pocketbase/safe-subscribe'
-import { useAuth } from '@/hooks/use-auth'
 
 /**
  * Hook for real-time subscriptions to a PocketBase collection.
@@ -15,26 +13,29 @@ export function useRealtime(
   callback: (data: RecordSubscription<any>) => void,
   enabled: boolean = true,
 ) {
-  const { user } = useAuth()
-  const userId = user?.id
   const callbackRef = useRef(callback)
   callbackRef.current = callback
 
   useEffect(() => {
-    if (!enabled || !pb.authStore.isValid) return
+    if (!enabled) return
 
     let unsubscribeFn: (() => Promise<void>) | undefined
     let cancelled = false
 
-    safeSubscribe(collectionName, '*', (e) => {
-      callbackRef.current(e)
-    }).then((fn) => {
-      if (cancelled) {
-        if (fn) fn().catch(() => {})
-      } else if (fn) {
-        unsubscribeFn = fn
-      }
-    })
+    pb.collection(collectionName)
+      .subscribe('*', (e) => {
+        callbackRef.current(e)
+      })
+      .then((fn) => {
+        if (cancelled) {
+          fn().catch(() => {})
+        } else {
+          unsubscribeFn = fn
+        }
+      })
+      .catch((err) => {
+        console.warn(`Realtime subscription error for ${collectionName}:`, err)
+      })
 
     return () => {
       cancelled = true
@@ -42,7 +43,7 @@ export function useRealtime(
         unsubscribeFn().catch(() => {})
       }
     }
-  }, [collectionName, enabled, userId])
+  }, [collectionName, enabled])
 }
 
 export default useRealtime

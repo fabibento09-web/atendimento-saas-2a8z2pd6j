@@ -62,6 +62,7 @@ export default function Conversas() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const [forceWizard, setForceWizard] = useState(false)
   const [messages, setMessages] = useState<any[]>([])
   const [conversationsMeta, setConversationsMeta] = useState<any[]>([])
   const [instances, setInstances] = useState<any[]>([])
@@ -74,6 +75,7 @@ export default function Conversas() {
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [fileToken, setFileToken] = useState<string>('')
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   // Media Upload State
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null)
@@ -116,7 +118,7 @@ export default function Conversas() {
   }
 
   const loadMessages = async () => {
-    if (!activeInstance || activeInstance.status !== 'connected') return
+    if (!activeInstance?.instance_name) return
     try {
       const fetchedMessages = await pb.collection('whatsapp_messages').getFullList({
         filter: `instance_name = "${activeInstance.instance_name}"`,
@@ -129,7 +131,7 @@ export default function Conversas() {
   }
 
   const loadConversationsMeta = async () => {
-    if (!activeInstance || activeInstance.status !== 'connected') return
+    if (!activeInstance?.instance_name) return
     try {
       const fetchedMeta = await pb.collection('conversations').getFullList({
         filter: `instance_name = "${activeInstance.instance_name}"`,
@@ -171,15 +173,21 @@ export default function Conversas() {
           handleConnect(disconnected?.instance_name)
         }
       }
+      if (insts.length === 0) {
+        setIsInitialLoad(false)
+      }
     })
   }, [user])
 
   useEffect(() => {
-    if (activeInstance && activeInstance.status === 'connected') {
-      loadMessages()
-      loadConversationsMeta()
+    if (activeInstance?.instance_name) {
+      Promise.all([loadMessages(), loadConversationsMeta()]).finally(() => {
+        setIsInitialLoad(false)
+      })
+    } else if (instances.length > 0) {
+      setIsInitialLoad(false)
     }
-  }, [activeInstance?.instance_name, activeInstance?.status])
+  }, [activeInstance?.instance_name, instances.length])
 
   useEffect(() => {
     if (!showMediaModal && mediaPreviewUrl) {
@@ -197,14 +205,13 @@ export default function Conversas() {
         loadInstances()
       }
     },
-    true,
-    loadInstances,
+    !!user,
   )
 
   useRealtime(
     'whatsapp_messages',
     (e) => {
-      if (!activeInstance || activeInstance.status !== 'connected') return
+      if (!activeInstance) return
       if (e.action === 'create') {
         const newMsg = e.record
         if (newMsg.instance_name === activeInstance.instance_name) {
@@ -217,14 +224,13 @@ export default function Conversas() {
         loadMessages()
       }
     },
-    true,
-    loadMessages,
+    !!user,
   )
 
   useRealtime(
     'conversations',
     (e) => {
-      if (!activeInstance || activeInstance.status !== 'connected') return
+      if (!activeInstance) return
       if (e.record.instance_name === activeInstance.instance_name) {
         if (e.action === 'create' || e.action === 'update') {
           setConversationsMeta((prev) => {
@@ -237,8 +243,7 @@ export default function Conversas() {
         }
       }
     },
-    true,
-    loadConversationsMeta,
+    !!user,
   )
 
   const loadFnsRef = useRef({ loadMessages, loadConversationsMeta })
@@ -264,7 +269,7 @@ export default function Conversas() {
   }, [])
 
   useEffect(() => {
-    if (!activeInstance || activeInstance.status !== 'connected') return
+    if (!activeInstance?.instance_name) return
 
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -276,7 +281,7 @@ export default function Conversas() {
     }, 20000)
 
     return () => clearInterval(interval)
-  }, [activeInstance?.status, activeInstance?.instance_name])
+  }, [activeInstance?.instance_name])
 
   const handleManualRefresh = () => {
     setIsRefreshing(true)
@@ -552,7 +557,23 @@ export default function Conversas() {
     }
   }
 
-  if (connectionStatus !== 'connected') {
+  const showConnectionWizard =
+    !isInitialLoad &&
+    connectionStatus !== 'connected' &&
+    (forceWizard || (messages.length === 0 && conversationsMeta.length === 0))
+
+  if (isInitialLoad && user && activeInstance?.instance_name) {
+    return (
+      <div className="flex h-full items-center justify-center bg-transparent animate-fade-in-up p-4">
+        <div className="flex flex-col items-center justify-center gap-4 text-brand-muted">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-primary" />
+          <span className="text-sm font-medium">Carregando histórico...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (showConnectionWizard) {
     return (
       <div className="flex h-full items-center justify-center bg-transparent animate-fade-in-up p-4">
         <div className="max-w-md w-full bg-white/95 backdrop-blur-sm border border-brand-cream-dark rounded-xl p-8 flex flex-col items-center text-center shadow-soft">
@@ -641,12 +662,32 @@ export default function Conversas() {
                       </div>
                     )}
                   </div>
-                  <Button variant="outline" onClick={handleDisconnect} className="w-full">
-                    Desconectar
-                  </Button>
+                  <div className="flex gap-3 w-full">
+                    <Button variant="outline" onClick={handleDisconnect} className="flex-1">
+                      Desconectar
+                    </Button>
+                    {forceWizard && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setForceWizard(false)}
+                        className="flex-1"
+                      >
+                        Fechar
+                      </Button>
+                    )}
+                  </div>
                 </>
               )}
             </>
+          )}
+          {forceWizard && connectionStatus === 'disconnected' && (
+            <Button
+              variant="ghost"
+              onClick={() => setForceWizard(false)}
+              className="mt-4 w-full text-muted-foreground"
+            >
+              Voltar ao Histórico
+            </Button>
           )}
         </div>
       </div>
@@ -704,496 +745,529 @@ export default function Conversas() {
   )
 
   return (
-    <div className="flex h-full overflow-hidden bg-transparent animate-fade-in-up border border-brand-cream-dark rounded-xl shadow-soft m-2 md:m-6">
-      <div
-        className={cn(
-          'w-full md:w-80 lg:w-[380px] border-r border-brand-cream-dark flex flex-col bg-white/95 backdrop-blur-sm shrink-0',
-          isMobileViewChat ? 'hidden md:flex' : 'flex',
-        )}
-      >
-        <div className="p-3 border-b border-brand-cream-dark flex gap-2 items-center shrink-0 bg-white/90">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar conversa..."
-              className="pl-9 h-9 bg-brand-cream/30 border-brand-cream-dark focus-visible:ring-brand-primary/50 text-sm"
-            />
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0 text-brand-muted hover:text-brand-primary shadow-sm"
-                title="Opções de sincronização"
-              >
-                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={handleManualRefresh} className="cursor-pointer py-2">
-                <RefreshCw className="w-4 h-4 mr-2 text-brand-muted" />
-                <span>Atualizar tela</span>
-              </DropdownMenuItem>
-              {activeInstance?.status === 'connected' && (
-                <DropdownMenuItem onClick={handleResync} className="cursor-pointer py-2">
-                  <Download className="w-4 h-4 mr-2 text-brand-primary" />
-                  <span className="text-brand-primary font-medium">Ressincronizar mensagens</span>
+    <div className="flex flex-col h-full overflow-hidden bg-transparent animate-fade-in-up border border-brand-cream-dark rounded-xl shadow-soft m-2 md:m-6">
+      {connectionStatus !== 'connected' && (
+        <Alert variant="destructive" className="rounded-none border-x-0 border-t-0 bg-red-500/10">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>WhatsApp Desconectado</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Você está visualizando o histórico offline. Para enviar e receber novas mensagens,
+              conecte seu aparelho.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setForceWizard(true)}
+              className="ml-4 shrink-0 bg-white hover:bg-red-50 text-red-600 border-red-200"
+            >
+              Conectar Agora
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        <div
+          className={cn(
+            'w-full md:w-80 lg:w-[380px] border-r border-brand-cream-dark flex flex-col bg-white/95 backdrop-blur-sm shrink-0',
+            isMobileViewChat ? 'hidden md:flex' : 'flex',
+          )}
+        >
+          <div className="p-3 border-b border-brand-cream-dark flex gap-2 items-center shrink-0 bg-white/90">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar conversa..."
+                className="pl-9 h-9 bg-brand-cream/30 border-brand-cream-dark focus-visible:ring-brand-primary/50 text-sm"
+              />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-brand-muted hover:text-brand-primary shadow-sm"
+                  title="Opções de sincronização"
+                >
+                  <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={handleManualRefresh} className="cursor-pointer py-2">
+                  <RefreshCw className="w-4 h-4 mr-2 text-brand-muted" />
+                  <span>Atualizar tela</span>
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <ScrollArea className="flex-1">
-          <div className="divide-y divide-brand-cream-dark">
-            {' '}
-            {conversations.length === 0 && search === '' ? emptyState : null}
-            {filteredConversations.length === 0 && search !== '' ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                Nenhum contato encontrado com "{search}".
-              </div>
-            ) : null}
-            {filteredConversations.map((chat) => (
-              <div
-                key={chat.remote_jid}
-                onClick={() => {
-                  setActiveJid(chat.remote_jid)
-                  setIsMobileViewChat(true)
-                }}
-                className={cn(
-                  'p-4 cursor-pointer transition-all flex gap-3 hover:bg-brand-cream/50 relative overflow-hidden w-full min-w-0',
-                  activeJid === chat.remote_jid
-                    ? 'bg-brand-cream before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-brand-primary'
-                    : 'bg-transparent',
+                {activeInstance?.status === 'connected' && (
+                  <DropdownMenuItem onClick={handleResync} className="cursor-pointer py-2">
+                    <Download className="w-4 h-4 mr-2 text-brand-primary" />
+                    <span className="text-brand-primary font-medium">Ressincronizar mensagens</span>
+                  </DropdownMenuItem>
                 )}
-              >
-                <Avatar className="shrink-0 w-12 h-12 border border-brand-cream-dark shadow-sm">
-                  {chat.avatar_url && <AvatarImage src={chat.avatar_url} alt={chat.contact_name} />}
-                  <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-serif">
-                    {chat.is_group ? (
-                      <Users className="w-5 h-5" />
-                    ) : (
-                      chat.contact_name?.charAt(0).toUpperCase() || '?'
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="divide-y divide-brand-cream-dark">
+              {' '}
+              {conversations.length === 0 && search === '' ? emptyState : null}
+              {filteredConversations.length === 0 && search !== '' ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  Nenhum contato encontrado com "{search}".
+                </div>
+              ) : null}
+              {filteredConversations.map((chat) => (
+                <div
+                  key={chat.remote_jid}
+                  onClick={() => {
+                    setActiveJid(chat.remote_jid)
+                    setIsMobileViewChat(true)
+                  }}
+                  className={cn(
+                    'p-4 cursor-pointer transition-all flex gap-3 hover:bg-brand-cream/50 relative overflow-hidden w-full min-w-0',
+                    activeJid === chat.remote_jid
+                      ? 'bg-brand-cream before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-brand-primary'
+                      : 'bg-transparent',
+                  )}
+                >
+                  <Avatar className="shrink-0 w-12 h-12 border border-brand-cream-dark shadow-sm">
+                    {chat.avatar_url && (
+                      <AvatarImage src={chat.avatar_url} alt={chat.contact_name} />
                     )}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
-                  <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-                    <div className="flex items-center gap-1.5 min-w-0 max-w-full">
-                      <span
+                    <AvatarFallback className="bg-brand-primary/10 text-brand-primary font-serif">
+                      {chat.is_group ? (
+                        <Users className="w-5 h-5" />
+                      ) : (
+                        chat.contact_name?.charAt(0).toUpperCase() || '?'
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+                      <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+                        <span
+                          className={cn(
+                            'text-sm truncate text-brand-deep block min-w-0 shrink',
+                            chat.unread_count > 0 && activeJid !== chat.remote_jid
+                              ? 'font-bold'
+                              : 'font-medium',
+                          )}
+                        >
+                          {chat.contact_name}
+                        </span>
+                        {chat.is_group && (
+                          <span className="shrink-0 bg-brand-primary/10 text-brand-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                            Grupo
+                          </span>
+                        )}
+                      </div>
+                      <p
                         className={cn(
-                          'text-sm truncate text-brand-deep block min-w-0 shrink',
+                          'text-xs truncate block w-full min-w-0',
                           chat.unread_count > 0 && activeJid !== chat.remote_jid
-                            ? 'font-bold'
-                            : 'font-medium',
+                            ? 'text-brand-deep font-medium'
+                            : 'text-brand-muted',
                         )}
                       >
-                        {chat.contact_name}
+                        {chat.content || 'Nenhuma mensagem.'}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end justify-center gap-1.5 shrink-0">
+                      <span
+                        className={cn(
+                          'text-[10px] leading-none',
+                          chat.unread_count > 0 && activeJid !== chat.remote_jid
+                            ? 'text-brand-primary font-bold'
+                            : 'text-brand-muted',
+                        )}
+                      >
+                        {new Date(chat.timestamp * 1000).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </span>
-                      {chat.is_group && (
-                        <span className="shrink-0 bg-brand-primary/10 text-brand-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+                      {chat.unread_count > 0 && activeJid !== chat.remote_jid && (
+                        <div
+                          className={cn(
+                            'bg-brand-primary text-white font-bold w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-sm',
+                            chat.unread_count > 99 ? 'text-[9px] tracking-tighter' : 'text-[10px]',
+                          )}
+                        >
+                          {chat.unread_count > 99 ? '99+' : chat.unread_count}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+
+        <div
+          className={cn(
+            'flex-1 flex flex-col bg-white/95 backdrop-blur-sm',
+            !isMobileViewChat ? 'hidden md:flex' : 'flex',
+          )}
+        >
+          {activeConversation ? (
+            <>
+              <div className="h-16 border-b border-brand-cream-dark bg-white/90 flex items-center px-4 justify-between shrink-0 z-10 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden -ml-2 text-brand-muted"
+                    onClick={() => setIsMobileViewChat(false)}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <Avatar className="w-10 h-10 border border-brand-cream-dark shadow-sm">
+                    {activeConversation.avatar_url && (
+                      <AvatarImage src={activeConversation.avatar_url} />
+                    )}
+                    <AvatarFallback className="font-serif bg-brand-primary/10 text-brand-primary">
+                      {activeConversation.is_group ? (
+                        <Users className="w-4 h-4" />
+                      ) : (
+                        activeConversation.contact_name?.charAt(0).toUpperCase() || '?'
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm text-brand-deep">
+                        {activeConversation.contact_name}
+                      </h3>
+                      {activeConversation.is_group && (
+                        <span className="bg-brand-primary/10 text-brand-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
                           Grupo
                         </span>
                       )}
                     </div>
-                    <p
-                      className={cn(
-                        'text-xs truncate block w-full min-w-0',
-                        chat.unread_count > 0 && activeJid !== chat.remote_jid
-                          ? 'text-brand-deep font-medium'
-                          : 'text-brand-muted',
-                      )}
-                    >
-                      {chat.content || 'Nenhuma mensagem.'}
-                    </p>
+                    <p className="text-xs text-brand-muted">{activeConversation.remote_jid}</p>
                   </div>
-                  <div className="flex flex-col items-end justify-center gap-1.5 shrink-0">
-                    <span
-                      className={cn(
-                        'text-[10px] leading-none',
-                        chat.unread_count > 0 && activeJid !== chat.remote_jid
-                          ? 'text-brand-primary font-bold'
-                          : 'text-brand-muted',
-                      )}
-                    >
-                      {new Date(chat.timestamp * 1000).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    {chat.unread_count > 0 && activeJid !== chat.remote_jid && (
-                      <div
-                        className={cn(
-                          'bg-brand-primary text-white font-bold w-[22px] h-[22px] rounded-full flex items-center justify-center shadow-sm',
-                          chat.unread_count > 99 ? 'text-[9px] tracking-tighter' : 'text-[10px]',
-                        )}
+                </div>
+
+                {!activeConversation.is_group && (
+                  <div className="ml-auto hidden sm:flex pr-2">
+                    {crmStatus === 'loading' ? (
+                      <Button variant="outline" size="sm" disabled>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Verificando...
+                      </Button>
+                    ) : crmStatus === 'added' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-600 border-green-200 bg-green-50/50 hover:bg-green-50"
+                        onClick={() => navigate(`/crm?contact=${crmContactId}`)}
                       >
-                        {chat.unread_count > 99 ? '99+' : chat.unread_count}
-                      </div>
-                    )}
+                        <Check className="w-4 h-4 mr-2" />
+                        Ver no CRM
+                      </Button>
+                    ) : crmStatus === 'none' ? (
+                      <Button variant="outline" size="sm" onClick={handleAddToCrm}>
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Adicionar ao CRM
+                      </Button>
+                    ) : null}
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
-
-      <div
-        className={cn(
-          'flex-1 flex flex-col bg-white/95 backdrop-blur-sm',
-          !isMobileViewChat ? 'hidden md:flex' : 'flex',
-        )}
-      >
-        {activeConversation ? (
-          <>
-            <div className="h-16 border-b border-brand-cream-dark bg-white/90 flex items-center px-4 justify-between shrink-0 z-10 shadow-sm">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden -ml-2 text-brand-muted"
-                  onClick={() => setIsMobileViewChat(false)}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                <Avatar className="w-10 h-10 border border-brand-cream-dark shadow-sm">
-                  {activeConversation.avatar_url && (
-                    <AvatarImage src={activeConversation.avatar_url} />
-                  )}
-                  <AvatarFallback className="font-serif bg-brand-primary/10 text-brand-primary">
-                    {activeConversation.is_group ? (
-                      <Users className="w-4 h-4" />
-                    ) : (
-                      activeConversation.contact_name?.charAt(0).toUpperCase() || '?'
-                    )}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm text-brand-deep">
-                      {activeConversation.contact_name}
-                    </h3>
-                    {activeConversation.is_group && (
-                      <span className="bg-brand-primary/10 text-brand-primary text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
-                        Grupo
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-brand-muted">{activeConversation.remote_jid}</p>
-                </div>
+                )}
               </div>
 
-              {!activeConversation.is_group && (
-                <div className="ml-auto hidden sm:flex pr-2">
-                  {crmStatus === 'loading' ? (
-                    <Button variant="outline" size="sm" disabled>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Verificando...
-                    </Button>
-                  ) : crmStatus === 'added' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-green-600 border-green-200 bg-green-50/50 hover:bg-green-50"
-                      onClick={() => navigate(`/crm?contact=${crmContactId}`)}
-                    >
-                      <Check className="w-4 h-4 mr-2" />
-                      Ver no CRM
-                    </Button>
-                  ) : crmStatus === 'none' ? (
-                    <Button variant="outline" size="sm" onClick={handleAddToCrm}>
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Adicionar ao CRM
-                    </Button>
-                  ) : null}
+              <div
+                className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 relative bg-repeat bg-fixed"
+                style={{
+                  backgroundImage: `url(${chatBgPattern})`,
+                  backgroundSize: '400px',
+                }}
+                ref={scrollRef}
+              >
+                <div className="flex justify-center my-4">
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full bg-brand-cream shadow-sm border border-brand-cream-dark text-brand-muted">
+                    Início da Conversa
+                  </span>
                 </div>
-              )}
-            </div>
 
-            <div
-              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 relative bg-repeat bg-fixed"
-              style={{
-                backgroundImage: `url(${chatBgPattern})`,
-                backgroundSize: '400px',
-              }}
-              ref={scrollRef}
-            >
-              <div className="flex justify-center my-4">
-                <span className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full bg-brand-cream shadow-sm border border-brand-cream-dark text-brand-muted">
-                  Início da Conversa
-                </span>
-              </div>
+                {activeChatMessages.map((msg) => {
+                  const renderType = msg.media_type || msg.message_type
+                  const isMedia = ['image', 'video', 'audio', 'document', 'sticker'].includes(
+                    renderType,
+                  )
+                  const hasMedia = !!msg.media_file || !!msg.media_url
+                  const mediaError = isMedia && !hasMedia
 
-              {activeChatMessages.map((msg) => {
-                const renderType = msg.media_type || msg.message_type
-                const isMedia = ['image', 'video', 'audio', 'document', 'sticker'].includes(
-                  renderType,
-                )
-                const hasMedia = !!msg.media_file || !!msg.media_url
-                const mediaError = isMedia && !hasMedia
-
-                const getErrorIcon = () => {
-                  switch (renderType) {
-                    case 'image':
-                      return <ImageIcon className="w-4 h-4" />
-                    case 'video':
-                      return <Video className="w-4 h-4" />
-                    case 'audio':
-                      return <Mic className="w-4 h-4" />
-                    case 'document':
-                      return <FileText className="w-4 h-4" />
-                    case 'sticker':
-                      return <StickyNote className="w-4 h-4" />
-                    default:
-                      return <AlertCircle className="w-4 h-4" />
+                  const getErrorIcon = () => {
+                    switch (renderType) {
+                      case 'image':
+                        return <ImageIcon className="w-4 h-4" />
+                      case 'video':
+                        return <Video className="w-4 h-4" />
+                      case 'audio':
+                        return <Mic className="w-4 h-4" />
+                      case 'document':
+                        return <FileText className="w-4 h-4" />
+                      case 'sticker':
+                        return <StickyNote className="w-4 h-4" />
+                      default:
+                        return <AlertCircle className="w-4 h-4" />
+                    }
                   }
-                }
 
-                const isGroupChat = activeConversation?.is_group
-                const showSenderHeader =
-                  isGroupChat &&
-                  !msg.from_me &&
-                  (msg.participant_jid || msg.participant_pushname || msg.push_name)
+                  const isGroupChat = activeConversation?.is_group
+                  const showSenderHeader =
+                    isGroupChat &&
+                    !msg.from_me &&
+                    (msg.participant_jid || msg.participant_pushname || msg.push_name)
 
-                const formatPhoneNumber = (jid?: string) => {
-                  if (!jid) return ''
-                  if (jid.endsWith('@lid')) return ''
-                  const number = jid.split('@')[0]
-                  if (number.length >= 12) {
-                    const ddi = number.substring(0, 2)
-                    const ddd = number.substring(2, 4)
-                    const firstPart = number.substring(4, number.length - 4)
-                    const lastPart = number.substring(number.length - 4)
-                    return `+${ddi} ${ddd} ${firstPart}-${lastPart}`
+                  const formatPhoneNumber = (jid?: string) => {
+                    if (!jid) return ''
+                    if (jid.endsWith('@lid')) return ''
+                    const number = jid.split('@')[0]
+                    if (number.length >= 12) {
+                      const ddi = number.substring(0, 2)
+                      const ddd = number.substring(2, 4)
+                      const firstPart = number.substring(4, number.length - 4)
+                      const lastPart = number.substring(number.length - 4)
+                      return `+${ddi} ${ddd} ${firstPart}-${lastPart}`
+                    }
+                    return `+${number}`
                   }
-                  return `+${number}`
-                }
 
-                return (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      'flex flex-col w-full',
-                      msg.from_me ? 'items-end' : 'items-start',
-                    )}
-                  >
-                    {showSenderHeader && (
-                      <div className="flex items-baseline gap-1.5 mb-1 px-1.5 max-w-[85%] md:max-w-[70%]">
-                        <span className="text-[11px] font-semibold text-primary truncate max-w-[150px]">
-                          {msg.participant_pushname || msg.push_name || 'Sem nome'}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          {formatPhoneNumber(msg.participant_jid)}
-                        </span>
-                      </div>
-                    )}
+                  return (
                     <div
-                      className={cn('flex w-full', msg.from_me ? 'justify-end' : 'justify-start')}
-                    >
-                      {renderType === 'sticker' && msg.from_me && (
-                        <span className="text-[10px] mt-auto mr-2 mb-2 text-muted-foreground font-medium shrink-0">
-                          {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+                      key={msg.id}
+                      className={cn(
+                        'flex flex-col w-full',
+                        msg.from_me ? 'items-end' : 'items-start',
                       )}
-
+                    >
+                      {showSenderHeader && (
+                        <div className="flex items-baseline gap-1.5 mb-1 px-1.5 max-w-[85%] md:max-w-[70%]">
+                          <span className="text-[11px] font-semibold text-primary truncate max-w-[150px]">
+                            {msg.participant_pushname || msg.push_name || 'Sem nome'}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {formatPhoneNumber(msg.participant_jid)}
+                          </span>
+                        </div>
+                      )}
                       <div
-                        className={cn(
-                          'max-w-[85%] md:max-w-[70%] shadow-sm relative group rounded-2xl border overflow-hidden',
-                          renderType === 'sticker'
-                            ? 'bg-transparent border-transparent shadow-none'
-                            : msg.from_me
-                              ? 'bg-brand-primary text-white rounded-tr-sm border-brand-primary p-2'
-                              : 'bg-white text-brand-deep rounded-tl-sm border-brand-cream-dark p-2',
-                        )}
+                        className={cn('flex w-full', msg.from_me ? 'justify-end' : 'justify-start')}
                       >
-                        {mediaError ? (
-                          <div className="flex items-center gap-2 p-2 text-sm italic opacity-70">
-                            {getErrorIcon()}
-                            Mídia indisponível
-                          </div>
-                        ) : (
-                          <>
-                            {renderType === 'image' ? (
-                              <div className="flex flex-col gap-2">
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <img
-                                      src={getMediaUrl(msg)}
-                                      alt="Imagem recebida"
-                                      className="max-w-full max-h-[300px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                    />
-                                  </DialogTrigger>
-                                  <DialogContent className="max-w-4xl p-1 bg-transparent border-none shadow-none flex justify-center [&>button]:bg-background [&>button]:text-foreground [&>button]:rounded-full [&>button]:p-1 [&>button]:shadow-md">
-                                    <img
-                                      src={getMediaUrl(msg)}
-                                      alt="Imagem ampliada"
-                                      className="max-w-full max-h-[85vh] object-contain rounded-lg"
-                                    />
-                                  </DialogContent>
-                                </Dialog>
-                                {(msg.caption || msg.content) && (
-                                  <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
-                                    {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
-                                  </p>
-                                )}
-                              </div>
-                            ) : renderType === 'video' ? (
-                              <div className="flex flex-col gap-2">
-                                <video
-                                  src={getMediaUrl(msg)}
-                                  controls
-                                  className="max-w-full max-h-[300px] rounded-lg"
-                                />
-                                {(msg.caption || msg.content) && (
-                                  <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
-                                    {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
-                                  </p>
-                                )}
-                              </div>
-                            ) : renderType === 'audio' ? (
-                              <div className="py-2 w-full">
-                                <audio
-                                  src={getMediaUrl(msg)}
-                                  controls
-                                  className="w-full min-w-[250px] md:min-w-[300px]"
-                                />
-                              </div>
-                            ) : renderType === 'document' ? (
-                              <div className="flex flex-col gap-3 p-2 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 bg-primary/20 text-primary rounded-lg flex items-center justify-center shrink-0">
-                                    <FileText className="w-5 h-5" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p
-                                      className="text-sm font-semibold truncate"
-                                      title={msg.media_filename || 'Documento'}
-                                    >
-                                      {msg.media_filename || 'Documento'}
+                        {renderType === 'sticker' && msg.from_me && (
+                          <span className="text-[10px] mt-auto mr-2 mb-2 text-muted-foreground font-medium shrink-0">
+                            {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        )}
+
+                        <div
+                          className={cn(
+                            'max-w-[85%] md:max-w-[70%] shadow-sm relative group rounded-2xl border overflow-hidden',
+                            renderType === 'sticker'
+                              ? 'bg-transparent border-transparent shadow-none'
+                              : msg.from_me
+                                ? 'bg-brand-primary text-white rounded-tr-sm border-brand-primary p-2'
+                                : 'bg-white text-brand-deep rounded-tl-sm border-brand-cream-dark p-2',
+                          )}
+                        >
+                          {mediaError ? (
+                            <div className="flex items-center gap-2 p-2 text-sm italic opacity-70">
+                              {getErrorIcon()}
+                              Mídia indisponível
+                            </div>
+                          ) : (
+                            <>
+                              {renderType === 'image' ? (
+                                <div className="flex flex-col gap-2">
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <img
+                                        src={getMediaUrl(msg)}
+                                        alt="Imagem recebida"
+                                        className="max-w-full max-h-[300px] object-contain rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                      />
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-4xl p-1 bg-transparent border-none shadow-none flex justify-center [&>button]:bg-background [&>button]:text-foreground [&>button]:rounded-full [&>button]:p-1 [&>button]:shadow-md">
+                                      <img
+                                        src={getMediaUrl(msg)}
+                                        alt="Imagem ampliada"
+                                        className="max-w-full max-h-[85vh] object-contain rounded-lg"
+                                      />
+                                    </DialogContent>
+                                  </Dialog>
+                                  {(msg.caption || msg.content) && (
+                                    <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
+                                      {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
                                     </p>
-                                    <p className="text-xs opacity-70 truncate">
-                                      {msg.media_mimetype || 'Desconhecido'}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex gap-2 mt-1">
-                                  <Button size="sm" className="flex-1 h-8 text-xs" asChild>
-                                    <a
-                                      href={getMediaUrl(msg)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      download
-                                    >
-                                      <Download className="w-3 h-3 mr-1.5" /> Baixar
-                                    </a>
-                                  </Button>
-                                  {msg.media_mimetype === 'application/pdf' && (
-                                    <Dialog>
-                                      <DialogTrigger asChild>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="flex-1 h-8 text-xs"
-                                        >
-                                          <Eye className="w-3 h-3 mr-1.5" /> Visualizar
-                                        </Button>
-                                      </DialogTrigger>
-                                      <DialogContent className="max-w-5xl h-[85vh] p-0">
-                                        <iframe
-                                          src={getMediaUrl(msg)}
-                                          className="w-full h-full rounded-lg"
-                                          title="PDF Preview"
-                                        />
-                                      </DialogContent>
-                                    </Dialog>
                                   )}
                                 </div>
-                                {(msg.caption || msg.content) && (
-                                  <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1">
-                                    {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
-                                  </p>
-                                )}
-                              </div>
-                            ) : renderType === 'sticker' ? (
-                              <img
-                                src={getMediaUrl(msg)}
-                                alt="Sticker"
-                                className="w-32 h-32 object-contain drop-shadow-sm"
-                              />
-                            ) : (
-                              <div className="flex flex-col">
-                                {(msg.link_title ||
-                                  msg.link_description ||
-                                  msg.link_url ||
-                                  msg.link_thumbnail_b64) && (
-                                  <a
-                                    href={
-                                      msg.link_url ||
-                                      msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
-                                      '#'
-                                    }
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={cn(
-                                      'block mb-2 rounded-lg border overflow-hidden transition-opacity hover:opacity-90',
-                                      msg.from_me
-                                        ? 'bg-white/10 border-white/20'
-                                        : 'bg-muted/50 border-muted',
-                                    )}
-                                  >
-                                    {msg.link_thumbnail_b64 && (
-                                      <img
-                                        src={msg.link_thumbnail_b64}
-                                        alt="Link thumbnail"
-                                        className="w-full max-h-[180px] object-cover"
-                                      />
-                                    )}
-                                    <div className="p-3">
-                                      {msg.link_title && (
-                                        <h4 className="text-sm font-semibold line-clamp-2 mb-1">
-                                          {msg.link_title}
-                                        </h4>
-                                      )}
-                                      {msg.link_description && (
-                                        <p className="text-xs opacity-80 line-clamp-2 mb-2">
-                                          {msg.link_description}
-                                        </p>
-                                      )}
-                                      <span className="text-[10px] opacity-60 uppercase tracking-wider">
-                                        {
-                                          (
-                                            msg.link_url ||
-                                            msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
-                                            ''
-                                          )
-                                            .replace(/^https?:\/\/(www\.)?/, '')
-                                            .split('/')[0]
-                                        }
-                                      </span>
+                              ) : renderType === 'video' ? (
+                                <div className="flex flex-col gap-2">
+                                  <video
+                                    src={getMediaUrl(msg)}
+                                    controls
+                                    className="max-w-full max-h-[300px] rounded-lg"
+                                  />
+                                  {(msg.caption || msg.content) && (
+                                    <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5">
+                                      {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : renderType === 'audio' ? (
+                                <div className="py-2 w-full">
+                                  <audio
+                                    src={getMediaUrl(msg)}
+                                    controls
+                                    className="w-full min-w-[250px] md:min-w-[300px]"
+                                  />
+                                </div>
+                              ) : renderType === 'document' ? (
+                                <div className="flex flex-col gap-3 p-2 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-primary/20 text-primary rounded-lg flex items-center justify-center shrink-0">
+                                      <FileText className="w-5 h-5" />
                                     </div>
-                                  </a>
-                                )}
-                                <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1.5">
-                                  {renderTextWithLinks(msg.content, msg.from_me)}
-                                </p>
-                              </div>
-                            )}
-                          </>
-                        )}
+                                    <div className="flex-1 min-w-0">
+                                      <p
+                                        className="text-sm font-semibold truncate"
+                                        title={msg.media_filename || 'Documento'}
+                                      >
+                                        {msg.media_filename || 'Documento'}
+                                      </p>
+                                      <p className="text-xs opacity-70 truncate">
+                                        {msg.media_mimetype || 'Desconhecido'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 mt-1">
+                                    <Button size="sm" className="flex-1 h-8 text-xs" asChild>
+                                      <a
+                                        href={getMediaUrl(msg)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        download
+                                      >
+                                        <Download className="w-3 h-3 mr-1.5" /> Baixar
+                                      </a>
+                                    </Button>
+                                    {msg.media_mimetype === 'application/pdf' && (
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="flex-1 h-8 text-xs"
+                                          >
+                                            <Eye className="w-3 h-3 mr-1.5" /> Visualizar
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-5xl h-[85vh] p-0">
+                                          <iframe
+                                            src={getMediaUrl(msg)}
+                                            className="w-full h-full rounded-lg"
+                                            title="PDF Preview"
+                                          />
+                                        </DialogContent>
+                                      </Dialog>
+                                    )}
+                                  </div>
+                                  {(msg.caption || msg.content) && (
+                                    <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1">
+                                      {renderTextWithLinks(msg.caption || msg.content, msg.from_me)}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : renderType === 'sticker' ? (
+                                <img
+                                  src={getMediaUrl(msg)}
+                                  alt="Sticker"
+                                  className="w-32 h-32 object-contain drop-shadow-sm"
+                                />
+                              ) : (
+                                <div className="flex flex-col">
+                                  {(msg.link_title ||
+                                    msg.link_description ||
+                                    msg.link_url ||
+                                    msg.link_thumbnail_b64) && (
+                                    <a
+                                      href={
+                                        msg.link_url ||
+                                        msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
+                                        '#'
+                                      }
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={cn(
+                                        'block mb-2 rounded-lg border overflow-hidden transition-opacity hover:opacity-90',
+                                        msg.from_me
+                                          ? 'bg-white/10 border-white/20'
+                                          : 'bg-muted/50 border-muted',
+                                      )}
+                                    >
+                                      {msg.link_thumbnail_b64 && (
+                                        <img
+                                          src={msg.link_thumbnail_b64}
+                                          alt="Link thumbnail"
+                                          className="w-full max-h-[180px] object-cover"
+                                        />
+                                      )}
+                                      <div className="p-3">
+                                        {msg.link_title && (
+                                          <h4 className="text-sm font-semibold line-clamp-2 mb-1">
+                                            {msg.link_title}
+                                          </h4>
+                                        )}
+                                        {msg.link_description && (
+                                          <p className="text-xs opacity-80 line-clamp-2 mb-2">
+                                            {msg.link_description}
+                                          </p>
+                                        )}
+                                        <span className="text-[10px] opacity-60 uppercase tracking-wider">
+                                          {
+                                            (
+                                              msg.link_url ||
+                                              msg.content.match(/(https?:\/\/[^\s]+)/)?.[0] ||
+                                              ''
+                                            )
+                                              .replace(/^https?:\/\/(www\.)?/, '')
+                                              .split('/')[0]
+                                          }
+                                        </span>
+                                      </div>
+                                    </a>
+                                  )}
+                                  <p className="text-[15px] whitespace-pre-wrap break-words leading-relaxed font-sans px-1.5 pt-1.5">
+                                    {renderTextWithLinks(msg.content, msg.from_me)}
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )}
 
-                        {renderType !== 'sticker' && (
-                          <span
-                            className={cn(
-                              'text-[10px] mt-1 block text-right font-medium px-1.5 pb-0.5',
-                              msg.from_me ? 'text-white/70' : 'text-muted-foreground',
-                            )}
-                          >
+                          {renderType !== 'sticker' && (
+                            <span
+                              className={cn(
+                                'text-[10px] mt-1 block text-right font-medium px-1.5 pb-0.5',
+                                msg.from_me ? 'text-white/70' : 'text-muted-foreground',
+                              )}
+                            >
+                              {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          )}
+                        </div>
+
+                        {renderType === 'sticker' && !msg.from_me && (
+                          <span className="text-[10px] mt-auto ml-2 mb-2 text-muted-foreground font-medium shrink-0">
                             {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -1201,183 +1275,183 @@ export default function Conversas() {
                           </span>
                         )}
                       </div>
-
-                      {renderType === 'sticker' && !msg.from_me && (
-                        <span className="text-[10px] mt-auto ml-2 mb-2 text-muted-foreground font-medium shrink-0">
-                          {new Date(msg.timestamp * 1000).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      )}
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="p-3 md:p-4 bg-white/90 border-t border-brand-cream-dark shrink-0 flex items-end gap-2 shadow-sm z-10">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-brand-muted hover:text-brand-primary hidden sm:flex"
-              >
-                <Smile className="w-5 h-5" />
-              </Button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-brand-muted hover:text-brand-primary hidden sm:flex"
-                  >
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" align="start">
-                  <DropdownMenuItem
-                    onClick={() => imageInputRef.current?.click()}
-                    className="cursor-pointer"
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" /> Imagem / Vídeo
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => docInputRef.current?.click()}
-                    className="cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4 mr-2" /> Documento
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => audioInputRef.current?.click()}
-                    className="cursor-pointer"
-                  >
-                    <Mic className="w-4 h-4 mr-2" /> Áudio
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <input
-                type="file"
-                className="hidden"
-                ref={imageInputRef}
-                accept="image/*,video/*"
-                onChange={(e) => handleFileSelect(e, 'image')}
-              />
-              <input
-                type="file"
-                className="hidden"
-                ref={docInputRef}
-                accept="application/pdf,.doc,.docx,.xls,.xlsx"
-                onChange={(e) => handleFileSelect(e, 'document')}
-              />
-              <input
-                type="file"
-                className="hidden"
-                ref={audioInputRef}
-                accept="audio/*"
-                onChange={(e) => handleFileSelect(e, 'audio')}
-              />
-
-              <Input
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Digite sua mensagem..."
-                className="flex-1 bg-white border-brand-sage focus-visible:ring-brand-primary shadow-sm h-11"
-              />
-              <Button
-                onClick={handleSend}
-                className="shrink-0 bg-brand-primary hover:bg-brand-secondary text-white shadow-sm h-11 px-4"
-              >
-                <span className="hidden sm:inline mr-2 font-medium">Enviar</span>
-                <Send className="w-4 h-4 ml-0.5" />
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-brand-muted p-6 h-full">
-            <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-soft border border-brand-cream-dark">
-              <MessageSquare className="w-12 h-12 text-brand-primary/40" />
-            </div>
-            <h3 className="font-serif text-2xl font-bold text-brand-primary">
-              Selecione uma Conversa
-            </h3>
-            <p className="text-sm mt-3 max-w-sm text-center leading-relaxed">
-              Clique em um contato na lateral para visualizar o histórico de mensagens e responder.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <Dialog open={showMediaModal} onOpenChange={setShowMediaModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enviar Mídia</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-4">
-            {mediaType === 'image' && mediaPreviewUrl && (
-              <img
-                src={mediaPreviewUrl}
-                alt="Preview"
-                className="max-h-64 object-contain rounded-md mx-auto"
-              />
-            )}
-            {mediaType === 'video' && mediaPreviewUrl && (
-              <video src={mediaPreviewUrl} controls className="max-h-64 rounded-md mx-auto" />
-            )}
-            {mediaType === 'document' && (
-              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
-                <FileText className="w-8 h-8 text-primary" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{selectedMedia?.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(selectedMedia?.size || 0) / 1024 > 1024
-                      ? ((selectedMedia?.size || 0) / (1024 * 1024)).toFixed(2) + ' MB'
-                      : ((selectedMedia?.size || 0) / 1024).toFixed(0) + ' KB'}
-                  </p>
-                </div>
+                  )
+                })}
               </div>
-            )}
-            {mediaType === 'audio' && (
-              <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
-                <Mic className="w-8 h-8 text-primary" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{selectedMedia?.name}</p>
-                  <audio src={mediaPreviewUrl || ''} controls className="w-full mt-2 h-8" />
-                </div>
-              </div>
-            )}
 
-            {mediaType !== 'audio' && (
-              <Input
-                value={mediaCaption}
-                onChange={(e) => setMediaCaption(e.target.value)}
-                placeholder="Adicionar legenda..."
-                className="mt-2"
-                onKeyDown={(e) => e.key === 'Enter' && handleSendMedia()}
-              />
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowMediaModal(false)}
-              disabled={isUploadingMedia}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleSendMedia} disabled={isUploadingMedia}>
-              {isUploadingMedia ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Send className="w-4 h-4 mr-2" />
+              <div className="p-3 md:p-4 bg-white/90 border-t border-brand-cream-dark shrink-0 flex items-end gap-2 shadow-sm z-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={connectionStatus !== 'connected'}
+                  className="shrink-0 text-brand-muted hover:text-brand-primary hidden sm:flex"
+                >
+                  <Smile className="w-5 h-5" />
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={connectionStatus !== 'connected'}
+                      className="shrink-0 text-brand-muted hover:text-brand-primary hidden sm:flex"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="top" align="start">
+                    <DropdownMenuItem
+                      onClick={() => imageInputRef.current?.click()}
+                      className="cursor-pointer"
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" /> Imagem / Vídeo
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => docInputRef.current?.click()}
+                      className="cursor-pointer"
+                    >
+                      <FileText className="w-4 h-4 mr-2" /> Documento
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => audioInputRef.current?.click()}
+                      className="cursor-pointer"
+                    >
+                      <Mic className="w-4 h-4 mr-2" /> Áudio
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <input
+                  type="file"
+                  className="hidden"
+                  ref={imageInputRef}
+                  accept="image/*,video/*"
+                  onChange={(e) => handleFileSelect(e, 'image')}
+                />
+                <input
+                  type="file"
+                  className="hidden"
+                  ref={docInputRef}
+                  accept="application/pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={(e) => handleFileSelect(e, 'document')}
+                />
+                <input
+                  type="file"
+                  className="hidden"
+                  ref={audioInputRef}
+                  accept="audio/*"
+                  onChange={(e) => handleFileSelect(e, 'audio')}
+                />
+
+                <Input
+                  value={inputText}
+                  disabled={connectionStatus !== 'connected'}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder={
+                    connectionStatus === 'connected'
+                      ? 'Digite sua mensagem...'
+                      : 'Conecte o WhatsApp para enviar mensagens'
+                  }
+                  className="flex-1 bg-white border-brand-sage focus-visible:ring-brand-primary shadow-sm h-11"
+                />
+                <Button
+                  onClick={handleSend}
+                  disabled={connectionStatus !== 'connected'}
+                  className="shrink-0 bg-brand-primary hover:bg-brand-secondary text-white shadow-sm h-11 px-4"
+                >
+                  <span className="hidden sm:inline mr-2 font-medium">Enviar</span>
+                  <Send className="w-4 h-4 ml-0.5" />
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-brand-muted p-6 h-full">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-soft border border-brand-cream-dark">
+                <MessageSquare className="w-12 h-12 text-brand-primary/40" />
+              </div>
+              <h3 className="font-serif text-2xl font-bold text-brand-primary">
+                Selecione uma Conversa
+              </h3>
+              <p className="text-sm mt-3 max-w-sm text-center leading-relaxed">
+                Clique em um contato na lateral para visualizar o histórico de mensagens e
+                responder.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <Dialog open={showMediaModal} onOpenChange={setShowMediaModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Enviar Mídia</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col gap-4 py-4">
+              {mediaType === 'image' && mediaPreviewUrl && (
+                <img
+                  src={mediaPreviewUrl}
+                  alt="Preview"
+                  className="max-h-64 object-contain rounded-md mx-auto"
+                />
               )}
-              Enviar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {mediaType === 'video' && mediaPreviewUrl && (
+                <video src={mediaPreviewUrl} controls className="max-h-64 rounded-md mx-auto" />
+              )}
+              {mediaType === 'document' && (
+                <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                  <FileText className="w-8 h-8 text-primary" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{selectedMedia?.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedMedia?.size || 0) / 1024 > 1024
+                        ? ((selectedMedia?.size || 0) / (1024 * 1024)).toFixed(2) + ' MB'
+                        : ((selectedMedia?.size || 0) / 1024).toFixed(0) + ' KB'}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {mediaType === 'audio' && (
+                <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-lg">
+                  <Mic className="w-8 h-8 text-primary" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{selectedMedia?.name}</p>
+                    <audio src={mediaPreviewUrl || ''} controls className="w-full mt-2 h-8" />
+                  </div>
+                </div>
+              )}
+
+              {mediaType !== 'audio' && (
+                <Input
+                  value={mediaCaption}
+                  onChange={(e) => setMediaCaption(e.target.value)}
+                  placeholder="Adicionar legenda..."
+                  className="mt-2"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendMedia()}
+                />
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowMediaModal(false)}
+                disabled={isUploadingMedia}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleSendMedia} disabled={isUploadingMedia}>
+                {isUploadingMedia ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Send className="w-4 h-4 mr-2" />
+                )}
+                Enviar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   )
 }

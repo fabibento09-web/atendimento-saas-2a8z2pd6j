@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
+import { useAuth } from '@/hooks/use-auth'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { RecordModel } from 'pocketbase'
 
 export default function Home() {
+  const { user } = useAuth()
   const [activeChats, setActiveChats] = useState(0)
   const [unanswered, setUnanswered] = useState(0)
   const [recentChats, setRecentChats] = useState<RecordModel[]>([])
@@ -44,15 +46,25 @@ export default function Home() {
   }
 
   useEffect(() => {
-    loadData()
-  }, [])
+    if (user) {
+      loadData()
+    }
+  }, [user])
 
-  useRealtime('conversations', () => {
-    loadData()
-  })
-  useRealtime('categories', () => {
-    loadData()
-  })
+  useRealtime(
+    'conversations',
+    () => {
+      loadData()
+    },
+    !!user,
+  )
+  useRealtime(
+    'categories',
+    () => {
+      loadData()
+    },
+    !!user,
+  )
 
   const sortedCategories = [...categories]
     .sort((a, b) => (categoryCounts[b.id] || 0) - (categoryCounts[a.id] || 0))
