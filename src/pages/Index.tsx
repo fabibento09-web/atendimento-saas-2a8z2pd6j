@@ -14,6 +14,7 @@ import {
   checkWhatsAppInstanceStatus,
   getWhatsAppInstances,
 } from '@/services/whatsapp_instances'
+import whatsappGlassUrl from '@/assets/whatsapp_glass_v3_final-39a9f.png'
 
 function StepCard({ stepNum, currentStep, title, icon, children, description }: any) {
   const isActive = stepNum === currentStep
@@ -287,9 +288,14 @@ export default function Index() {
         </div>
       </div>
 
-      <div className="mb-12 text-center space-y-4 relative z-10">
-        <h1 className="text-4xl md:text-6xl font-serif font-bold text-white drop-shadow-lg animate-fade-in-down tracking-tight">
-          AtendeSaaS
+      <div className="mb-12 text-center space-y-4 relative z-10 flex flex-col items-center">
+        <h1 className="text-4xl md:text-6xl font-serif font-bold text-white drop-shadow-lg animate-fade-in-down tracking-tight flex items-center justify-center gap-3 md:gap-4 flex-wrap">
+          <span>Conecte seu</span>
+          <img
+            src={whatsappGlassUrl}
+            alt="WhatsApp"
+            className="h-10 w-10 md:h-16 md:w-16 object-contain hover:-translate-y-2 hover:scale-110 transition-transform duration-300 cursor-default drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+          />
         </h1>
         <p className="text-emerald-50/80 max-w-lg mx-auto animate-fade-in-up text-lg font-medium">
           Configure sua plataforma em três passos simples e revolucione o atendimento da sua equipe.
