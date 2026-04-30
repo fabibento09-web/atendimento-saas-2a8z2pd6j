@@ -22,16 +22,7 @@ function StepCard({ stepNum, currentStep, title, icon, children, description }: 
   const isPast = stepNum < currentStep
 
   return (
-    <Card
-      className={cn(
-        'transition-all duration-500 relative overflow-hidden border backdrop-blur-xl',
-        isActive
-          ? 'border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.2)] scale-[1.03] z-10 bg-white/95 block'
-          : isPast
-            ? 'border-white/40 bg-white/80 scale-100 opacity-95 hidden md:block'
-            : 'border-white/20 bg-white/60 scale-100 opacity-80 hidden md:block',
-      )}
-    >
+    <Card className="opacity-[0.85]">
       <CardHeader className="pb-4">
         <div className="flex items-center gap-3 mb-1">
           <div
