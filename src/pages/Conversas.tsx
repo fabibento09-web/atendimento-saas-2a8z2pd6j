@@ -51,6 +51,7 @@ import {
   createWhatsAppInstanceApi,
   checkWhatsAppInstanceStatus,
   disconnectWhatsAppInstanceApi,
+  resyncWhatsAppInstance,
 } from '@/services/whatsapp_instances'
 import { toast } from 'sonner'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
@@ -288,6 +289,16 @@ export default function Conversas() {
     setTimeout(() => {
       setIsRefreshing(false)
     }, 1000)
+  }
+
+  const handleResync = async () => {
+    if (!activeInstance || activeInstance.status !== 'connected') return
+    try {
+      toast.success('Sincronização iniciada', { description: 'Isso pode levar alguns minutos.' })
+      await resyncWhatsAppInstance(activeInstance.instance_name)
+    } catch (err: any) {
+      toast.error('Erro ao iniciar sincronização', { description: getErrorMessage(err) })
+    }
   }
 
   useEffect(() => {
@@ -707,15 +718,30 @@ export default function Conversas() {
               className="pl-9 h-9 bg-brand-cream/30 border-brand-cream-dark focus-visible:ring-brand-primary/50 text-sm"
             />
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 shrink-0 text-brand-muted hover:text-brand-primary shadow-sm"
-            onClick={handleManualRefresh}
-            title="Atualizar conversas"
-          >
-            <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0 text-brand-muted hover:text-brand-primary shadow-sm"
+                title="Opções de sincronização"
+              >
+                <RefreshCw className={cn('w-4 h-4', isRefreshing && 'animate-spin')} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={handleManualRefresh} className="cursor-pointer py-2">
+                <RefreshCw className="w-4 h-4 mr-2 text-brand-muted" />
+                <span>Atualizar tela</span>
+              </DropdownMenuItem>
+              {activeInstance?.status === 'connected' && (
+                <DropdownMenuItem onClick={handleResync} className="cursor-pointer py-2">
+                  <Download className="w-4 h-4 mr-2 text-brand-primary" />
+                  <span className="text-brand-primary font-medium">Ressincronizar mensagens</span>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <ScrollArea className="flex-1">
           <div className="divide-y divide-brand-cream-dark">

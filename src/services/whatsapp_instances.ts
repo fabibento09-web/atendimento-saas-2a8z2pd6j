@@ -43,3 +43,9 @@ export const disconnectWhatsAppInstanceApi = (instanceName: string) =>
     method: 'POST',
     body: JSON.stringify({ instanceName }),
   })
+
+export const resyncWhatsAppInstance = (instanceName: string) =>
+  pb.send<{ success: boolean }>('/backend/v1/whatsapp/resync', {
+    method: 'POST',
+    body: JSON.stringify({ instanceName }),
+  })
