@@ -575,36 +575,6 @@ export default function Conversas() {
           isMobileViewChat ? 'hidden md:flex' : 'flex',
         )}
       >
-        <div className="p-4 border-b border-muted bg-card z-10 shadow-sm">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar contatos..."
-                className="pl-9 bg-background border-muted focus-visible:ring-primary shadow-sm"
-              />
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <div
-                className="flex items-center justify-center w-10 h-10 rounded-md bg-green-500/10 border border-green-500/20"
-                title="Conectado"
-              >
-                <span className="flex h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={handleDisconnect}
-                title="Desconectar WhatsApp"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
         <ScrollArea className="flex-1 bg-card">
           <div className="divide-y divide-muted">
             {conversations.length === 0 && search === '' ? emptyState : null}
